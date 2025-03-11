@@ -43,3 +43,5 @@ async function sendWhatsAppTemplateMessage({
     throw error;
   }
 }
+
+export default sendWhatsAppTemplateMessage;

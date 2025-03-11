@@ -1,6 +1,7 @@
 import express from "express";
 import connectDB from "./database/mongo.js";
 import User from "./model/user.model.js";
+import sendWhatsAppTemplateMessage from "./whatsapp.js";
 
 const server = express();
 
