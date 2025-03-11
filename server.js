@@ -50,6 +50,8 @@ server.route("/users").post(async (req, res) => {
 });
 
 server.route("/webhook").get((req, res) => {
-  console.log(req.params);
+  console.log("query", req.query);
+  console.log("body", req.body);
+
   res.send("Webhook is working");
 });
