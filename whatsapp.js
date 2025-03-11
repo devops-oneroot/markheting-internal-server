@@ -1,3 +1,7 @@
+import * as dotenv from "dotenv";
+
+dotenv.config();
+
 async function sendWhatsAppTemplateMessage({
   to,
   templateName,
@@ -6,8 +10,7 @@ async function sendWhatsAppTemplateMessage({
   // The endpoint URL is updated with your provided Phone Number ID
   const url = "https://graph.facebook.com/v22.0/189810287560171/messages";
   // Replace with your actual access token; consider storing it securely (e.g., in an environment variable)
-  const accessToken =
-    "EAAxAu3HxwgMBO3ei2oYPgq4zz6NiylroVyZBmxfa8gimtZBqAiUnSyRFZC1bVN0xoXoXZBsNXaQBdsOZAfyMYUZCOoK4qlpAPqgSWWcq1Ius9ZBvvTyGP9CPeSZAjs9zpWH6dnjk1ZB8AGMWIYqxQmbKP3nhCMwkVbS8Q6X4EcbG2g52Fs1N4zSX0Hib7a13PWewiCOguUJjFsu6bVwqghr5U2wErBiUZD";
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
 
   const payload = {
     messaging_product: "whatsapp",
