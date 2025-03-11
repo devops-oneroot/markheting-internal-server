@@ -1,26 +1,43 @@
 import * as dotenv from "dotenv";
-
 dotenv.config();
 
-async function sendWhatsAppTemplateMessage({
+export async function sendWhatsAppTemplateMessage({
   to,
   templateName,
   languageCode = "en_US",
+  imageLink, // URL for the header image; required if your template expects an image header
 }) {
-  // The endpoint URL is updated with your provided Phone Number ID
+  // The endpoint URL with your provided Phone Number ID
   const url = "https://graph.facebook.com/v22.0/189810287560171/messages";
-  // Replace with your actual access token; consider storing it securely (e.g., in an environment variable)
+  // Use your long-lived access token from environment variables
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
 
+  // Build the payload
   const payload = {
     messaging_product: "whatsapp",
-    to: to, // The recipient's phone number (in international format)
+    to: to, // The recipient's phone number in international format
     type: "template",
     template: {
-      name: templateName, // For example: "hello_world"
+      name: templateName, // Must exactly match the approved template name
       language: {
         code: languageCode,
       },
+      // Include header component if imageLink is provided
+      components: imageLink
+        ? [
+            {
+              type: "header",
+              parameters: [
+                {
+                  type: "image",
+                  image: {
+                    link: imageLink,
+                  },
+                },
+              ],
+            },
+          ]
+        : undefined,
     },
   };
 

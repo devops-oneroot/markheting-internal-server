@@ -68,7 +68,9 @@ server.get("/webhook", async (req, res) => {
     // Call the WhatsApp messaging function with the required template parameters
     const responseData = await sendWhatsAppTemplateMessage({
       to: phoneNumber,
-      templateName: "hello_world",
+      templateName: "voice_broadcast_farmer_app_install",
+      languageCode: "kn",
+      
     });
 
     res.status(200).send({
