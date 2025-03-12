@@ -71,16 +71,29 @@ if (cluster.isMaster) {
           }
           const phoneNumber = "91" + callFrom;
 
-          const responseData = await sendWhatsAppTemplateMessage({
+          // Trigger the WhatsApp message asynchronously without awaiting it.
+          sendWhatsAppTemplateMessage({
             to: phoneNumber,
             templateName: "voice_broadcast_farmer_app_install",
             languageCode: "kn",
             imageLink: "https://i.imgur.com/XLYYiUz.jpeg",
-          });
+          })
+            .then((responseData) => {
+              console.log(
+                `[${new Date().toISOString()}] WhatsApp message processed:`,
+                responseData
+              );
+            })
+            .catch((error) => {
+              console.error(
+                `[${new Date().toISOString()}] Error processing WhatsApp message:`,
+                error
+              );
+            });
 
-          res.status(200).send({
-            message: "Webhook processed",
-            response: responseData,
+          // Immediately respond with a 202 Accepted status
+          res.status(202).send({
+            message: "Webhook processed - WhatsApp message sending initiated",
           });
         } catch (error) {
           console.error(
