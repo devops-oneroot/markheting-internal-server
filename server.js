@@ -59,39 +59,40 @@ if (cluster.isMaster) {
         }
       });
 
-      server.get("/webhook", async (req, res) => {
+      server.get("/webhook", (req, res) => {
         try {
           let callFrom = req.query.CallFrom;
           if (!callFrom) {
             return res.status(400).send("Missing CallFrom parameter");
           }
-
           if (callFrom.startsWith("0")) {
             callFrom = callFrom.substring(1);
           }
           const phoneNumber = "91" + callFrom;
 
-          // Trigger the WhatsApp message asynchronously without awaiting it.
-          sendWhatsAppTemplateMessage({
-            to: phoneNumber,
-            templateName: "voice_broadcast_farmer_app_install",
-            languageCode: "kn",
-            imageLink: "https://i.imgur.com/XLYYiUz.jpeg",
-          })
-            .then((responseData) => {
-              console.log(
-                `[${new Date().toISOString()}] WhatsApp message processed:`,
-                responseData
-              );
+          // Decouple the asynchronous task from the response cycle
+          setImmediate(() => {
+            sendWhatsAppTemplateMessage({
+              to: phoneNumber,
+              templateName: "voice_broadcast_farmer_app_install",
+              languageCode: "kn",
+              imageLink: "https://i.imgur.com/XLYYiUz.jpeg",
             })
-            .catch((error) => {
-              console.error(
-                `[${new Date().toISOString()}] Error processing WhatsApp message:`,
-                error
-              );
-            });
+              .then((responseData) => {
+                console.log(
+                  `[${new Date().toISOString()}] WhatsApp message processed:`,
+                  responseData
+                );
+              })
+              .catch((error) => {
+                console.error(
+                  `[${new Date().toISOString()}] Error processing WhatsApp message:`,
+                  error
+                );
+              });
+          });
 
-          // Immediately respond with a 202 Accepted status
+          // Immediately respond to the client
           res.status(202).send({
             message: "Webhook processed - WhatsApp message sending initiated",
           });

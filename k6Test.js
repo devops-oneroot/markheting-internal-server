@@ -10,7 +10,7 @@ export let options = {
 };
 
 export default function () {
-  const url = "http://localhost:3000/webhook";
+  const url = "https://campdash.onrender.com/webhook";
   const params = {
     headers: {
       "Content-Type": "application/json",
