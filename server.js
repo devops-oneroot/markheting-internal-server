@@ -2,6 +2,7 @@ import express from "express";
 import connectDB from "./database/mongo.js";
 import User from "./model/user.model.js";
 import sendWhatsAppTemplateMessage from "./whatsapp.js";
+import userRoute from "./routes/userRoute.js";
 import cluster from "cluster";
 import os from "os";
 
@@ -25,6 +26,7 @@ if (cluster.isMaster) {
       // Middleware
       server.use(express.json());
       server.use(express.urlencoded({ extended: true }));
+      server.use(userRoute);
 
       // Routes
       server.get("/", (req, res) => {
