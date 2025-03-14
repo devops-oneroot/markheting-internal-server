@@ -76,7 +76,7 @@ if (cluster.isMaster) {
           setImmediate(() => {
             sendWhatsAppTemplateMessage({
               to: phoneNumber,
-              templateName: "voice_broadcast_farmer_app_install",
+              templateName: "missed_call_initial_message_ready",
               languageCode: "kn",
               imageLink: "https://i.imgur.com/XLYYiUz.jpeg",
             })

@@ -33,5 +33,5 @@ export default function () {
     "response time < 500ms": (r) => r.timings.duration < 500,
   });
 
-  sleep(1); // Delay to simulate realistic traffic
+  sleep(1);
 }

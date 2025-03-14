@@ -7,6 +7,9 @@ package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
+#test
+k6Test.js
+
 # Logs
 logs
 *.log
@@ -41,3 +44,4 @@ Thumbs.db
 # Misc
 .nyc_output/
 coverage/
+k6Test.js

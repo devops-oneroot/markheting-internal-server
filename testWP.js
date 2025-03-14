@@ -1,4 +1,7 @@
 import fetch from "node-fetch";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 async function sendWhatsAppTemplateMessage(
   to,
@@ -7,8 +10,7 @@ async function sendWhatsAppTemplateMessage(
   imageUrl
 ) {
   const url = "https://graph.facebook.com/v22.0/447851115073925/messages";
-  const token =
-    "EAAPriJOVzGIBO0h5VPK2PyPSf7iSX3DyBGysBMsO4tSNeedhEPV8SctjO2sfW2yWhLS47kXw2AMLUCvzqGaDHuyBeKZCRZA6vjnjYzoHqp8R7ZAiZBUqsARwGebHA8vA4mjVz7zoVxbGKmpaFZAtxSfzuvTc4Eu8gEZCNAC0749G8fAxLmTljZCkKoEnu1CFaNcyqlZAZBms6pYj2i2Kv8S3LnuAzc0OY"; // Replace with your actual token
+  const token = process.env.MARKHET_WHATSAPP_ACCESS_TOKEN;
 
   const payload = {
     messaging_product: "whatsapp",

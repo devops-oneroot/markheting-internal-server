@@ -21,8 +21,8 @@ export async function sendWhatsAppTemplateMessage({
   languageCode = "en_US",
   imageLink,
 }) {
-  const url = "https://graph.facebook.com/v22.0/189810287560171/messages";
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  const url = "https://graph.facebook.com/v22.0/447851115073925/messages";
+  const accessToken = process.env.MARKHET_WHATSAPP_ACCESS_TOKEN;
 
   const payload = {
     messaging_product: "whatsapp",
