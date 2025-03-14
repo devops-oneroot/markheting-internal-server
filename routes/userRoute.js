@@ -1,12 +1,13 @@
 import multer from "multer";
 
 import { Router } from "express";
-import { concentAdd } from "../controller/userController.js";
+import { concentAdd, importCsv } from "../controller/userController.js";
 
 const route = Router();
 const upload = multer({ dest: "uploads/" });
 
 // route.put("/consent", concentAdd);
-route.post("/upload", upload.single("csv"), concentAdd);
+route.put("/consent", upload.single("csv"), concentAdd);
+route.post("/user-import", upload.single("csv"), importCsv);
 
 export default route;
