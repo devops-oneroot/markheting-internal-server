@@ -5,6 +5,7 @@ import sendWhatsAppTemplateMessage from "./whatsapp.js";
 import userRoute from "./routes/userRoute.js";
 import cluster from "cluster";
 import os from "os";
+import cors from "cors";
 
 // Master process: Fork workers based on CPU cores
 if (cluster.isMaster) {
@@ -27,6 +28,7 @@ if (cluster.isMaster) {
       server.use(express.json());
       server.use(express.urlencoded({ extended: true }));
       server.use(userRoute);
+      server.use(cors())
 
       // Routes
       server.get("/", (req, res) => {
