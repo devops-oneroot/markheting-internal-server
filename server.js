@@ -28,7 +28,7 @@ if (cluster.isMaster) {
       server.use(express.json());
       server.use(express.urlencoded({ extended: true }));
       server.use(userRoute);
-      server.use(cors())
+      server.use(cors());
 
       // Routes
       server.get("/", (req, res) => {
@@ -78,7 +78,7 @@ if (cluster.isMaster) {
           setImmediate(() => {
             sendWhatsAppTemplateMessage({
               to: phoneNumber,
-              templateName: "missed_call_initial_message_ready",
+              templateName: "voice_broadcast_farmer_app",
               languageCode: "kn",
               imageLink: "https://i.imgur.com/XLYYiUz.jpeg",
             })
