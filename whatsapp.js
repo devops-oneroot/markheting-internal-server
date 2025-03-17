@@ -34,7 +34,7 @@ export async function createUserAndSendFlow({
   const payload = {
     phone: sanitizedPhone,
     first_name: sanitizedPhone,
-    last_name: sanitizedPhone,
+    last_name: "broadcast",
     gender: "male",
     actions: [
       {
@@ -70,4 +70,3 @@ export async function createUserAndSendFlow({
     throw error;
   }
 }
-
