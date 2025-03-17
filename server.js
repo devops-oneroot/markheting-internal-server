@@ -1,7 +1,7 @@
 import express from "express";
 import connectDB from "./database/mongo.js";
 import User from "./model/user.model.js";
-import sendWhatsAppTemplateMessage from "./whatsapp.js";
+import { createUserAndSendFlow } from "./whatsapp.js";
 import userRoute from "./routes/userRoute.js";
 import cluster from "cluster";
 import os from "os";
@@ -76,12 +76,7 @@ if (cluster.isMaster) {
 
           // Decouple the asynchronous task from the response cycle
           setImmediate(() => {
-            sendWhatsAppTemplateMessage({
-              to: phoneNumber,
-              templateName: "voice_broadcast_farmer_app",
-              languageCode: "kn",
-              imageLink: "https://i.imgur.com/XLYYiUz.jpeg",
-            })
+            createUserAndSendFlow({ phone: phoneNumber })
               .then((responseData) => {
                 console.log(
                   `[${new Date().toISOString()}] WhatsApp message processed:`,

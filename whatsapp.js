@@ -1,5 +1,5 @@
 import * as dotenv from "dotenv";
-import fetch from "node-fetch";
+import fetch from "node-fetch"; // For Node.js versions earlier than 18; Node 18+ has built-in fetch
 import https from "https";
 import Bottleneck from "bottleneck";
 
@@ -15,40 +15,37 @@ const limiter = new Bottleneck({
   minTime: 10,
 });
 
-export async function sendWhatsAppTemplateMessage({
-  to,
-  templateName,
-  languageCode = "en_US",
-  imageLink,
+export async function createUserAndSendFlow({
+  phone,
+  flowId = "1741784066803",
 }) {
-  const url = "https://graph.facebook.com/v22.0/447851115073925/messages";
-  const accessToken = process.env.MARKHET_WHATSAPP_ACCESS_TOKEN;
+  const sanitizedPhone = phone.replace(/"/g, "");
+  const endpoint = `https://api.chatrace.com/users`;
+
+  console.log("API Key:", process.env.CHATRACE_API_KEY);
+  console.log("Endpoint:", endpoint);
 
   const payload = {
-    messaging_product: "whatsapp",
-    to: to,
-    type: "template",
-    template: {
-      name: templateName,
-      language: { code: languageCode },
-      components: imageLink
-        ? [
-            {
-              type: "header",
-              parameters: [{ type: "image", image: { link: imageLink } }],
-            },
-          ]
-        : undefined,
-    },
+    phone: sanitizedPhone,
+    first_name: phone,
+    last_name: phone,
+    gender: "male",
+    actions: [
+      {
+        action: "send_flow",
+        flow_id: flowId,
+      },
+    ],
   };
 
   try {
     const response = await limiter.schedule(() =>
-      fetch(url, {
+      fetch(endpoint, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          accept: "application/json",
           "Content-Type": "application/json",
+          "X-ACCESS-TOKEN": process.env.CHATRACE_API_KEY,
         },
         body: JSON.stringify(payload),
         agent,
@@ -60,12 +57,10 @@ export async function sendWhatsAppTemplateMessage({
       console.error(`Error ${response.status}:`, data);
       return data;
     }
-    console.log("WhatsApp message sent successfully:", data);
+    console.log("User created and flow sent successfully:", data);
     return data;
   } catch (error) {
-    console.error("Error sending WhatsApp message:", error);
+    console.error("Error creating user and sending flow:", error);
     throw error;
   }
 }
-
-export default sendWhatsAppTemplateMessage;
