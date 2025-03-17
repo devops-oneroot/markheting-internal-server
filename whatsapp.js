@@ -25,7 +25,7 @@ export async function createUserAndSendFlow({
     sanitizedPhone = sanitizedPhone.substring(1);
   }
 
-  const endpoint = `https://api.chatrace.com/users`;
+  const endpoint = process.env.CHATRACE_SEND_API_URL;
 
   console.log("API Key:", process.env.CHATRACE_API_KEY);
   console.log("Endpoint:", endpoint);
