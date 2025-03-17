@@ -19,16 +19,22 @@ export async function createUserAndSendFlow({
   phone,
   flowId = "1741784066803",
 }) {
-  const sanitizedPhone = phone.replace(/"/g, "");
+  // Remove any double quotes and leading zero from the phone number
+  let sanitizedPhone = phone.replace(/"/g, "").trim();
+  if (sanitizedPhone.startsWith("0")) {
+    sanitizedPhone = sanitizedPhone.substring(1);
+  }
+
   const endpoint = `https://api.chatrace.com/users`;
 
   console.log("API Key:", process.env.CHATRACE_API_KEY);
   console.log("Endpoint:", endpoint);
+  console.log("Sanitized Phone:", sanitizedPhone);
 
   const payload = {
     phone: sanitizedPhone,
-    first_name: phone,
-    last_name: phone,
+    first_name: sanitizedPhone,
+    last_name: sanitizedPhone,
     gender: "male",
     actions: [
       {
@@ -64,3 +70,4 @@ export async function createUserAndSendFlow({
     throw error;
   }
 }
+

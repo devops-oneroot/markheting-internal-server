@@ -66,10 +66,12 @@ if (cluster.isMaster) {
       server.get("/webhook", (req, res) => {
         try {
           let callFrom = req.query.CallFrom;
+          console.log("CallFrom:", callFrom);
           if (!callFrom) {
             return res.status(400).send("Missing CallFrom parameter");
           }
           if (callFrom.startsWith("0")) {
+            console.log("Removing leading 0 from phone number");
             callFrom = callFrom.substring(1);
           }
           const phoneNumber = "91" + callFrom;
