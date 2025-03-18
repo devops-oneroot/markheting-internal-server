@@ -27,8 +27,9 @@ if (cluster.isMaster) {
       // Middleware
       server.use(express.json());
       server.use(express.urlencoded({ extended: true }));
-      server.use(userRoute);
       server.use(cors());
+      server.use(userRoute);
+
 
       // Routes
       server.get("/", (req, res) => {
