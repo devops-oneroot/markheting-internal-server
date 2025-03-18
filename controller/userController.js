@@ -165,7 +165,7 @@ export const importCsv = async (req, res) => {
 
           // Insert only new records.
           if (newRecords.length > 0) {
-            await Farmer.insertMany(newRecords, { ordered: false });
+            await User.insertMany(newRecords, { ordered: false });
           }
           console.log("CSV data inserted successfully.");
 
