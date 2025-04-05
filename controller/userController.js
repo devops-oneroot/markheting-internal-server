@@ -2,7 +2,6 @@ import User from "../model/user.model.js"; // Import your User model
 import fs from "fs";
 import csvParser from "csv-parser";
 
-
 export const concentAdd = async (req, res) => {
   try {
     if (!req.file) {
@@ -283,5 +282,81 @@ export const concentAddAllowOverwrite = async (req, res) => {
     return res
       .status(500)
       .json({ error: "Server error", details: error.message });
+  }
+};
+
+export const updateDatabase = async (req, res) => {
+  try {
+    // fetch users from api
+    const response = await fetch(`https://markhet-internal.onrender.com/users`);
+    const apiUsers = await response.json();
+    console.log(`fetched ${apiUsers.length} users from api`);
+
+    // build map of api users keyed by normalized mobile number (without "+91")
+    const apiUsersMap = new Map();
+    for (const apiUser of apiUsers) {
+      const normalizedNumber = apiUser.mobileNumber.replace(/^\+91/, "");
+      apiUsersMap.set(normalizedNumber, apiUser);
+    }
+
+    // fetch database users with downloaded false
+    const dbUsers = await User.find(
+      { downloaded: false },
+      { number: 1, downloaded: 1, downloaded_date: 1 }
+    );
+    console.log(
+      `fetched ${dbUsers.length} users from database with downloaded false`
+    );
+
+    const updateOperations = [];
+    let matchedCount = 0;
+
+    // iterate through database users and update only those found in api data
+    for (const dbUser of dbUsers) {
+      const apiUser = apiUsersMap.get(dbUser.number);
+      if (apiUser) {
+        matchedCount++;
+        let isDownloaded = false;
+        let downloadedDate = "";
+        if (apiUser.fcmToken && !apiUser.fcmToken.startsWith("dummy")) {
+          isDownloaded = true;
+          downloadedDate = new Date().toISOString();
+        }
+        console.log(
+          `matched user ${dbUser.number}: api fcmToken = ${apiUser.fcmToken} | setting downloaded: ${isDownloaded}, downloaded_date: ${downloadedDate}`
+        );
+        updateOperations.push({
+          updateOne: {
+            filter: { number: dbUser.number },
+            update: {
+              $set: {
+                downloaded: isDownloaded,
+                downloaded_date: downloadedDate,
+              },
+            },
+          },
+        });
+      } else {
+        console.log(`no api match for database user ${dbUser.number}`);
+      }
+    }
+
+    console.log(`total matched users: ${matchedCount}`);
+
+    // perform bulk update if operations exist
+    if (updateOperations.length > 0) {
+      const bulkWriteResult = await User.bulkWrite(updateOperations);
+      console.log(`bulk update result:`, bulkWriteResult);
+    } else {
+      console.log("no updates to perform.");
+    }
+
+    return res.status(200).json({
+      message: "database updated successfully",
+      updatedCount: updateOperations.length,
+    });
+  } catch (error) {
+    console.error("error updating database:", error);
+    return res.status(500).json({ message: "internal server error" });
   }
 };

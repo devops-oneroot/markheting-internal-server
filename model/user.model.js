@@ -11,6 +11,8 @@ const userSchema = new mongoose.Schema(
     tag: { type: String },
     consent: String,
     consent_date: String,
+    downloaded: { type: Boolean, default: false },
+    downloaded_date: { type: String },
   },
   { timestamps: true }
 );
