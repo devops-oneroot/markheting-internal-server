@@ -302,7 +302,13 @@ export const updateDatabase = async (req, res) => {
     // fetch database users with downloaded false
     const dbUsers = await User.find(
       { downloaded: false },
-      { number: 1, downloaded: 1, downloaded_date: 1 }
+      {
+        number: 1,
+        downloaded: 1,
+        downloaded_date: 1,
+        consent: 1,
+        consent_date: 1,
+      }
     );
     console.log(
       `fetched ${dbUsers.length} users from database with downloaded false`
@@ -316,24 +322,56 @@ export const updateDatabase = async (req, res) => {
       const apiUser = apiUsersMap.get(dbUser.number);
       if (apiUser) {
         matchedCount++;
-        let isDownloaded = false;
-        let downloadedDate = "";
-        if (apiUser.fcmToken && !apiUser.fcmToken.startsWith("dummy")) {
-          isDownloaded = true;
-          downloadedDate = new Date().toISOString();
-        }
+        // Always set downloaded_date to the API user's createdAt date.
+        const downloadedDate = apiUser.createdAt;
+        // Determine the downloaded flag based on non-dummy fcmToken.
+        const isDownloaded =
+          apiUser.fcmToken && !apiUser.fcmToken.startsWith("dummy");
+
         console.log(
           `matched user ${dbUser.number}: api fcmToken = ${apiUser.fcmToken} | setting downloaded: ${isDownloaded}, downloaded_date: ${downloadedDate}`
         );
+
+        // Prepare update fields for consent-related logic.
+        const updateFields = {
+          downloaded: isDownloaded,
+          downloaded_date: downloadedDate,
+        };
+
+        // Consent logic:
+        if (apiUser.fcmToken && apiUser.fcmToken.startsWith("dummy")) {
+          if (!dbUser.consent_date || dbUser.consent_date === "") {
+            updateFields.consent_date = apiUser.createdAt;
+          }
+          if (dbUser.consent !== "yes") {
+            updateFields.consent = "yes";
+          }
+        } else {
+          // For non-dummy tokens, ensure consent is "yes"
+          // and the consent_date is less than or equal to apiCreatedAt.
+          let needConsentUpdate = false;
+          if (dbUser.consent !== "yes") {
+            needConsentUpdate = true;
+          }
+          if (!dbUser.consent_date) {
+            needConsentUpdate = true;
+          } else {
+            // Compare dates; if the current consent_date is later than the api createdAt, update it.
+            if (new Date(dbUser.consent_date) > new Date(apiUser.createdAt)) {
+              needConsentUpdate = true;
+            }
+          }
+          if (needConsentUpdate) {
+            updateFields.consent = "yes";
+            updateFields.consent_date = apiUser.createdAt;
+          }
+        }
+
+        console.log(`updating user ${dbUser.number} with:`, updateFields);
         updateOperations.push({
           updateOne: {
             filter: { number: dbUser.number },
-            update: {
-              $set: {
-                downloaded: isDownloaded,
-                downloaded_date: downloadedDate,
-              },
-            },
+            update: { $set: updateFields },
           },
         });
       } else {
