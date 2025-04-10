@@ -6,8 +6,7 @@ import userRoute from "./routes/userRoute.js";
 import cluster from "cluster";
 import os from "os";
 import cors from "cors";
-import { stringify } from "csv-stringify"; // Optional if not used directly
-import { Parser } from "json2csv"; // ✅ ES module import
+import { Parser } from "json2csv";
 
 if (cluster.isPrimary) {
   const numCPUs = os.cpus().length;
@@ -40,7 +39,7 @@ if (cluster.isPrimary) {
             district,
             number,
             identity,
-            tags,
+            tags, // Changed to match frontend
             consent,
             consent_date,
             downloaded,
@@ -50,17 +49,22 @@ if (cluster.isPrimary) {
           const user = await User.findById(id);
           if (!user) return res.status(404).json({ error: "User not found" });
 
+          // Update only if values are explicitly provided in the payload
           user.name = name ?? user.name;
           user.village = village ?? user.village;
           user.taluk = taluk ?? user.taluk;
           user.district = district ?? user.district;
           user.number = number ?? user.number;
           user.identity = identity ?? user.identity;
-          user.tags = tags ?? user.tags;
+          user.tags = tags ?? user.tags; // Changed to tags
           user.consent = consent ?? user.consent;
           user.consent_date = consent_date ?? user.consent_date;
-          user.downloaded = downloaded ?? user.downloaded;
           user.downloaded_date = downloaded_date ?? user.downloaded_date;
+
+          // Explicitly handle downloaded to preserve null, true, or false
+          if ("downloaded" in req.body) {
+            user.downloaded = downloaded; // Allows null, true, or false
+          }
 
           const updatedUser = await user.save();
           res.json(updatedUser);
@@ -75,64 +79,56 @@ if (cluster.isPrimary) {
         res.send("Welcome to market dashboard");
       });
 
+      // Fetch distinct tags
       server.get("/tags", async (req, res) => {
         try {
-          // Fetch distinct tag values, excluding null or empty strings
-          const tags = await User.distinct("tag", { tag: { $nin: [null, ""] } });
-          console.log("Fetched tags:", tags); // Debug log
-          res.json(tags.filter(Boolean)); // Filter out any falsy values
+          const tags = await User.distinct("tag", { tag: { $nin: [null, ""] } }); // Changed to tag
+          console.log("Fetched tags:", tags);
+          res.json(tags.filter(Boolean));
         } catch (error) {
           console.error("Error fetching tags:", error.message);
           res.status(500).json({ error: "Internal Server Error" });
         }
       });
-      
+
+      // Fetch users with filters
       server.get("/users", async (req, res) => {
         try {
           const { page = 1, tag, consent, downloaded, date, search } = req.query;
           const limit = 50;
           const skip = (page - 1) * limit;
-      
+
           const query = {};
-      
-          // Fix: filter by tag
-          if (tag) query.tag = tag;
-      
-          // Consent filter
+ // Fix: filter by tag
+          if (tag) query.tag = tag; // Changed to tags
+ // Consent filter
           if (consent) {
             query.consent = consent === "yes" ? "yes" : { $in: ["", null, "no"] };
           }
-      
           // Downloaded filter
+
           if (downloaded === "yes") query.downloaded = true;
           else if (downloaded === "no") query.downloaded = false;
           else if (downloaded === "null") query.downloaded = null;
 
-          // Date filter with DD/MM/YYYY format
-          if (req.query.date) {
-            const [ month, day,year] = req.query.date.split("-"); // '2025-04-09'
-            const formatted = `${month}-${day}-${year}`; // '2025-04-09'
-          
-            // Check if consent_date starts with that formatted date
-            query.consent_date = { $regex: `^${formatted}` }; // 👈 Match like '2025-04-09%'
+          // Date filter corrected for YYYY-MM-DD input
+          if (date) {
+            const [year, month, day] = date.split("-"); // '2025-04-09'
+            const formattedDate = `${year}-${month}-${day}`; // Ensure correct format
+            query.consent_date = { $regex: `^${formattedDate}` };
           }
-          
-          
-          
 
-      
-          // Search filter
           if (search) {
             query.$or = [
               { name: { $regex: search, $options: "i" } },
               { number: { $regex: search, $options: "i" } },
             ];
           }
-      
+
           const users = await User.find(query).skip(skip).limit(limit);
           const totalUsers = await User.countDocuments(query);
           const totalPages = Math.ceil(totalUsers / limit);
-      
+
           res.json({
             users,
             totalPages,
@@ -143,28 +139,25 @@ if (cluster.isPrimary) {
           res.status(500).json({ error: "Internal Server Error" });
         }
       });
-      
-      
 
-      // GET download CSV of filtered users
+      // Download CSV of filtered users
       server.get("/download-users", async (req, res) => {
         try {
           const { tag, consent, date, downloaded } = req.query;
           let query = {};
-          if (tag) query.tag = tag;
+          if (tag) query.tag = tag; // Changed to tags
           if (consent) query.consent = consent === "yes" ? "yes" : "";
           if (date) query.consent_date = new Date(date);
           if (downloaded === "yes") query.downloaded = true;
           else if (downloaded === "no") query.downloaded = false;
-          if(downloaded === "null") query.downloaded = null;
-
+          else if (downloaded === "null") query.downloaded = null;
 
           const users = await User.find(query);
           const fields = [
             "name",
             "number",
-           "identity",
-            "tag",
+            "identity",
+            "tag", // Changed to tags
             "consent",
             "consent_date",
             "downloaded",
@@ -206,7 +199,7 @@ if (cluster.isPrimary) {
         }
       });
 
-      // GET: Webhook for WhatsApp flow
+      // Webhook for WhatsApp flow
       server.get("/webhook", (req, res) => {
         try {
           let callFrom = req.query.CallFrom;
