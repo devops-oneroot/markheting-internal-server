@@ -7,6 +7,9 @@ import cluster from "cluster";
 import os from "os";
 import cors from "cors";
 import { Parser } from "json2csv";
+import locationRoute from "./routes/locationRoute.js";
+
+
 
 if (cluster.isPrimary) {
   const numCPUs = os.cpus().length;
@@ -27,6 +30,10 @@ if (cluster.isPrimary) {
       server.use(express.urlencoded({ extended: true }));
       server.use(cors());
       server.use(userRoute);
+      server.use(locationRoute);
+
+
+    
 
       // PUT: Update User
       server.put("/users/:id", async (req, res) => {
