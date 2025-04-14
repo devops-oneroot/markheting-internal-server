@@ -8,8 +8,10 @@ router.get("/location/:pincode", async (req, res) => {
   const { pincode } = req.params;
 
   try {
-    const response = await fetch(`http://ec2-43-204-114-19.ap-south-1.compute.amazonaws.com:8001/locations/${pincode}`);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_LOCATION_API}/locations/${pincode}`);
+
     const data = await response.json();
+    console.log(data)
    
   
     
