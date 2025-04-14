@@ -1,4 +1,5 @@
 import express from "express";
+import dotenv from 'dotenv';
 import connectDB from "./database/mongo.js";
 import User from "./model/user.model.js";
 import { createUserAndSendFlow } from "./whatsapp.js";
@@ -9,7 +10,7 @@ import cors from "cors";
 import { Parser } from "json2csv";
 import locationRoute from "./routes/locationRoute.js";
 
-
+dotenv.config();
 
 if (cluster.isPrimary) {
   const numCPUs = os.cpus().length;
@@ -90,7 +91,7 @@ if (cluster.isPrimary) {
       server.get("/tags", async (req, res) => {
         try {
           const tags = await User.distinct("tag", { tag: { $nin: [null, ""] } }); // Changed to tag
-          console.log("Fetched tags:", tags);
+         
           res.json(tags.filter(Boolean));
         } catch (error) {
           console.error("Error fetching tags:", error.message);
