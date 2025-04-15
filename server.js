@@ -8,7 +8,7 @@ import cluster from "cluster";
 import os from "os";
 import cors from "cors";
 import { Parser } from "json2csv";
-import locationRoute from "./routes/locationRoute.js";
+// import locationRoute from "./routes/locationRoute.js";
 
 dotenv.config();
 
@@ -31,7 +31,7 @@ if (cluster.isPrimary) {
       server.use(express.urlencoded({ extended: true }));
       server.use(cors());
       server.use(userRoute);
-      server.use(locationRoute);
+      // server.use(locationRoute);
 
 
     
