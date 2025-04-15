@@ -301,7 +301,7 @@ export const updateDatabase = async (req, res) => {
 
    // fetch database users with downloaded false
    const dbUsers = await User.find(
-    { downloaded: false },
+    { downloaded: null },
     { number: 1, downloaded: 1, downloaded_date: 1 }
   );
   console.log(
