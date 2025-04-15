@@ -1,5 +1,5 @@
 import express from "express";
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 import connectDB from "./database/mongo.js";
 import User from "./model/user.model.js";
 import { createUserAndSendFlow } from "./whatsapp.js";
@@ -32,9 +32,6 @@ if (cluster.isPrimary) {
       server.use(cors());
       server.use(userRoute);
       // server.use(locationRoute);
-
-
-    
 
       // PUT: Update User
       server.put("/users/:id", async (req, res) => {
@@ -90,8 +87,10 @@ if (cluster.isPrimary) {
       // Fetch distinct tags
       server.get("/tags", async (req, res) => {
         try {
-          const tags = await User.distinct("tag", { tag: { $nin: [null, ""] } }); // Changed to tag
-         
+          const tags = await User.distinct("tag", {
+            tag: { $nin: [null, ""] },
+          }); // Changed to tag
+
           res.json(tags.filter(Boolean));
         } catch (error) {
           console.error("Error fetching tags:", error.message);
@@ -102,16 +101,24 @@ if (cluster.isPrimary) {
       // Fetch users with filters
       server.get("/users", async (req, res) => {
         try {
-          const { page = 1, tag, consent, downloaded, date, search } = req.query;
+          const {
+            page = 1,
+            tag,
+            consent,
+            downloaded,
+            date,
+            search,
+          } = req.query;
           const limit = 50;
           const skip = (page - 1) * limit;
 
           const query = {};
- // Fix: filter by tag
+          // Fix: filter by tag
           if (tag) query.tag = tag; // Changed to tags
- // Consent filter
+          // Consent filter
           if (consent) {
-            query.consent = consent === "yes" ? "yes" : { $in: ["", null, "no"] };
+            query.consent =
+              consent === "yes" ? "yes" : { $in: ["", null, "no"] };
           }
           // Downloaded filter
 
@@ -221,7 +228,45 @@ if (cluster.isPrimary) {
           const phoneNumber = "91" + callFrom;
 
           setImmediate(() => {
-            createUserAndSendFlow({ phone: phoneNumber })
+            createUserAndSendFlow({ phone: phoneNumber, type: "broadcast" })
+              .then((responseData) => {
+                console.log(
+                  `[${new Date().toISOString()}] WhatsApp message processed:`,
+                  responseData
+                );
+              })
+              .catch((error) => {
+                console.error(
+                  `[${new Date().toISOString()}] WhatsApp error:`,
+                  error
+                );
+              });
+          });
+
+          res.status(202).send({
+            message: "Webhook processed - WhatsApp message sending initiated",
+          });
+        } catch (error) {
+          console.error(`[${new Date().toISOString()}] Webhook error:`, error);
+          res.status(500).send("Internal Server Error");
+        }
+      });
+
+      //Webhook for new user download link
+      server.get("/webhook", (req, res) => {
+        try {
+          let callFrom = req.query.CallFrom;
+          console.log("CallFrom:", callFrom);
+          if (!callFrom) return res.status(400).send("Missing CallFrom");
+
+          if (callFrom.startsWith("0")) {
+            console.log("Removing leading 0");
+            callFrom = callFrom.substring(1);
+          }
+          const phoneNumber = "91" + callFrom;
+
+          setImmediate(() => {
+            createUserAndSendFlow({ phone: phoneNumber, type: "call link" })
               .then((responseData) => {
                 console.log(
                   `[${new Date().toISOString()}] WhatsApp message processed:`,

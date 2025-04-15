@@ -18,6 +18,7 @@ const limiter = new Bottleneck({
 export async function createUserAndSendFlow({
   phone,
   flowId = "1741784066803",
+  type = "broadcast" | "call link",
 }) {
   // Remove any double quotes and leading zero from the phone number
   let sanitizedPhone = phone.replace(/"/g, "").trim();
@@ -34,7 +35,7 @@ export async function createUserAndSendFlow({
   const payload = {
     phone: sanitizedPhone,
     first_name: sanitizedPhone,
-    last_name: "broadcast",
+    last_name: type,
     gender: "male",
     actions: [
       {

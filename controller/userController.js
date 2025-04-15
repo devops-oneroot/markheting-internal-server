@@ -141,7 +141,7 @@ export const importCsv = async (req, res) => {
           normalizedData[key.toLowerCase()] = data[key];
         });
 
-        // If there's an empty key (which can occur due to an extra column), remove it.
+        // Remove any empty key (possible due to an extra column).
         if (normalizedData[""] !== undefined) {
           delete normalizedData[""];
         }
@@ -150,12 +150,12 @@ export const importCsv = async (req, res) => {
       })
       .on("end", async () => {
         try {
-          // Extract the 'number' field (now all keys are lowercase) and trim whitespace.
+          // Extract and trim the 'number' field from each row.
           const csvNumbers = results
             .map((row) => (row.number ? row.number.trim() : ""))
             .filter((num) => num !== "");
 
-          // Remove duplicate phone numbers.
+          // Create a set of unique numbers for querying existing users in the DB.
           const uniqueNumbers = [...new Set(csvNumbers)];
           console.log("Unique phones extracted from CSV:", uniqueNumbers);
 
@@ -166,17 +166,30 @@ export const importCsv = async (req, res) => {
           );
           const existingNumbers = existingUsers.map((user) => user.number);
 
-          // Filter out rows that already exist in the DB.
-          const newRecords = results.filter(
-            (row) => row.number && !existingNumbers.includes(row.number.trim())
-          );
+          // Filter out rows that already exist in the DB and also deduplicate entries from CSV,
+          // only inserting the first occurrence.
+          const newRecords = [];
+          const seenNumbers = new Set();
+          results.forEach((row) => {
+            if (row.number) {
+              const trimmedNumber = row.number.trim();
+              // If number does not exist in DB and has not yet been processed, add it
+              if (
+                !existingNumbers.includes(trimmedNumber) &&
+                !seenNumbers.has(trimmedNumber)
+              ) {
+                seenNumbers.add(trimmedNumber);
+                newRecords.push(row);
+              }
+            }
+          });
 
           console.log("Total records in CSV:", results.length);
           console.log("Unique numbers in CSV:", uniqueNumbers.length);
           console.log("Existing numbers in DB:", existingNumbers.length);
           console.log("New records to insert:", newRecords.length);
 
-          // Insert only new records.
+          // Insert only the new records.
           if (newRecords.length > 0) {
             await User.insertMany(newRecords, { ordered: false });
           }
@@ -217,6 +230,7 @@ export const importCsv = async (req, res) => {
     });
   }
 };
+
 
 export const concentAddAllowOverwrite = async (req, res) => {
   try {
