@@ -231,7 +231,6 @@ export const importCsv = async (req, res) => {
   }
 };
 
-
 export const concentAddAllowOverwrite = async (req, res) => {
   try {
     if (!req.file) {
@@ -313,44 +312,49 @@ export const updateDatabase = async (req, res) => {
       apiUsersMap.set(normalizedNumber, apiUser);
     }
 
-   // fetch database users with downloaded false
-   const dbUsers = await User.find(
-    { downloaded: null },
-    { number: 1, downloaded: 1, downloaded_date: 1 }
-  );
-  console.log(
-    `fetched ${dbUsers.length} users from database with downloaded false`
-  );
+    // fetch database users with downloaded false
+    const dbUsers = await User.find(
+      { downloaded: null },
+      { number: 1, downloaded: 1, downloaded_date: 1 }
+    );
+    console.log(
+      `fetched ${dbUsers.length} users from database with downloaded false`
+    );
 
-  const updateOperations = [];
-  let matchedCount = 0;
+    const updateOperations = [];
+    let matchedCount = 0;
 
-  // iterate through database users and update only those found in api data
-  for (const dbUser of dbUsers) {
-    const apiUser = apiUsersMap.get(dbUser.number);
-    if (apiUser) {
-      matchedCount++;
-      let isDownloaded = false;
-      let downloadedDate = "";
-      if (apiUser.fcmToken && !apiUser.fcmToken.startsWith("dummy")) {
-        isDownloaded = true;
-        downloadedDate = new Date().toISOString();
-      }
-      console.log(
-        `matched user ${dbUser.number}: api fcmToken = ${apiUser.fcmToken} | setting downloaded: ${isDownloaded}, downloaded_date: ${downloadedDate}`
-      );
-      updateOperations.push({
-        updateOne: {
-          filter: { number: dbUser.number },
-          update: {
-            $set: {
-              downloaded: isDownloaded,
-              downloaded_date: downloadedDate,
+    // iterate through database users and update only those found in api data
+    for (const dbUser of dbUsers) {
+      const apiUser = apiUsersMap.get(dbUser.number);
+      const concentDate = dbUser.consent_date
+        ? dbUser.consent_date
+        : new Date().toISOString();
+      if (apiUser) {
+        matchedCount++;
+        let isDownloaded = false;
+        let downloadedDate = "";
+        if (apiUser.fcmToken && !apiUser.fcmToken.startsWith("dummy")) {
+          isDownloaded = true;
+          downloadedDate = new Date().toISOString();
+        }
+        console.log(
+          `matched user ${dbUser.number}: api fcmToken = ${apiUser.fcmToken} | setting downloaded: ${isDownloaded}, downloaded_date: ${downloadedDate}`
+        );
+        updateOperations.push({
+          updateOne: {
+            filter: { number: dbUser.number },
+            update: {
+              $set: {
+                downloaded: isDownloaded,
+                downloaded_date: downloadedDate,
+                concent: "yes",
+                consent_date: concentDate,
+              },
             },
           },
-        },
-      });
-    } else {
+        });
+      } else {
         console.log(`no api match for database user ${dbUser.number}`);
       }
     }
@@ -375,33 +379,38 @@ export const updateDatabase = async (req, res) => {
   }
 };
 
-
-export const location =  async (req, res) => {
+export const location = async (req, res) => {
   const { pincode } = req.params;
 
   const baseUrl = process.env.LOCATION_API;
   if (!baseUrl) {
     console.error("❌ LOCATION_API is not defined in environment variables");
-    return res.status(500).json({ error: "Server configuration error: LOCATION_API missing" });
+    return res
+      .status(500)
+      .json({ error: "Server configuration error: LOCATION_API missing" });
   }
 
   try {
     const response = await fetch(`${baseUrl}/locations/${pincode}`);
-    
+
     if (!response.ok) {
-      return res.status(response.status).json({ error: "Failed to fetch location data" });
+      return res
+        .status(response.status)
+        .json({ error: "Failed to fetch location data" });
     }
 
     const data = await response.json();
 
     if (!data || !data.data || !Array.isArray(data.data)) {
-      return res.status(404).json({ error: "Invalid pincode or data not found" });
+      return res
+        .status(404)
+        .json({ error: "Invalid pincode or data not found" });
     }
 
-    const locations = data.data.map(location => ({
+    const locations = data.data.map((location) => ({
       village: location.village,
       taluk: location.taluk,
-      district: location.district
+      district: location.district,
     }));
 
     res.json({ data: locations });
