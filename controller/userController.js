@@ -72,12 +72,10 @@ export const concentAdd = async (req, res) => {
           });
         } catch (updateError) {
           console.error("Error updating users:", updateError);
-          return res
-            .status(500)
-            .json({
-              error: "Error updating users",
-              details: updateError.message,
-            });
+          return res.status(500).json({
+            error: "Error updating users",
+            details: updateError.message,
+          });
         }
       })
       .on("error", (csvError) => {
@@ -302,9 +300,12 @@ export const updateDatabase = async (req, res) => {
         matchedCount++;
         let isDownloaded = false;
         let downloadedDate = "";
+        const onBoardDate = dbUser.onboarded_date
+          ? dbUser.consent_date
+          : apiUser.createdAt;
         const concentDate = dbUser.consent_date
-        ? dbUser.consent_date
-        : apiUser.createdAt
+          ? dbUser.consent_date
+          : apiUser.createdAt;
         if (apiUser.fcmToken && !apiUser.fcmToken.startsWith("dummy")) {
           isDownloaded = true;
           downloadedDate = apiUser.createdAt;
@@ -320,6 +321,7 @@ export const updateDatabase = async (req, res) => {
                 downloaded: isDownloaded,
                 downloaded_date: downloadedDate,
                 consent: "yes",
+                onboarded_date: onBoardDate,
                 consent_date: concentDate,
               },
             },
