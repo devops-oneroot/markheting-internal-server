@@ -14,25 +14,12 @@ export const concentAdd = async (req, res) => {
     fs.createReadStream(filePath)
       .pipe(csvParser())
       .on("data", (data) => {
-        let phone = null;
-        let consentDate = null;
-
-        // Extract phone number (considering both "Phone" and "phone" headers)
-        if (data.Phone) {
-          phone = data.Phone.trim();
-        } else if (data.phone) {
-          phone = data.phone.trim();
-        }
-
-        // Extract "Date of Addition" from CSV
-        if (data["Date of Addition"]) {
-          consentDate = data["Date of Addition"].trim();
-        }
+        // Normalize phone and consent date
+        let phone = data.Phone?.trim() || data.phone?.trim();
+        const consentDate = data["Date of Addition"]?.trim() || null;
 
         if (phone) {
-          if (phone.startsWith("0")) {
-            phone = phone.substring(1); // Remove leading zero if present
-          }
+          if (phone.startsWith("0")) phone = phone.substring(1);
           csvPhones.push({ phone, consentDate });
         } else {
           console.log("No phone field found in row:", data);
@@ -40,83 +27,67 @@ export const concentAdd = async (req, res) => {
       })
       .on("end", async () => {
         try {
-          const uniquePhoneData = new Map();
-
-          // Remove duplicates while keeping the correct consentDate
+          // Deduplicate, preferring rows with a consentDate
+          const uniquePhoneMap = new Map();
           csvPhones.forEach(({ phone, consentDate }) => {
-            if (!uniquePhoneData.has(phone) || consentDate) {
-              uniquePhoneData.set(phone, consentDate);
+            if (!uniquePhoneMap.has(phone) || consentDate) {
+              uniquePhoneMap.set(phone, consentDate);
             }
           });
 
-          const formattedData = Array.from(uniquePhoneData.entries()).map(
-            ([phone, consentDate]) => ({
-              number: phone,
-              consentDate: consentDate || null, // Ensure date is set
+          const formattedData = Array.from(
+            uniquePhoneMap,
+            ([number, consentDate]) => ({ number, consentDate })
+          );
+
+          // Prepare bulk upsert operations
+          const bulkOperations = formattedData.map(
+            ({ number, consentDate }) => ({
+              updateOne: {
+                filter: { number },
+                update: { $set: { consent: "yes", consent_date: consentDate } },
+                upsert: true,
+              },
             })
           );
 
-          console.log(
-            "Unique phone numbers with consent dates:",
-            formattedData
-          );
+          // Execute bulkWrite
+          const result = await User.bulkWrite(bulkOperations);
 
-          // Count total matching documents in the database
-          const totalMatching = await User.countDocuments({
-            number: { $in: formattedData.map((entry) => entry.number) },
-          });
+          // Statistics
+          const modifiedCount = result.modifiedCount || 0;
+          const upsertedCount = result.upsertedCount || 0;
+          const totalProcessed = formattedData.length;
 
-          // Prepare bulk update operations
-          const bulkUpdates = formattedData.map(({ number, consentDate }) => ({
-            updateOne: {
-              filter: {
-                number,
-                $or: [
-                  { consent: { $exists: false } },
-                  { consent: { $ne: "yes" } },
-                ],
-              },
-              update: {
-                $set: { consent: "yes", consent_date: consentDate },
-              },
-            },
-          }));
-
-          // Execute bulk update
-          const updateResult = await User.bulkWrite(bulkUpdates);
-
-          // Safely compute updatedCount
-          const updatedCount = updateResult.modifiedCount || 0;
-          const skippedCount = totalMatching - updatedCount;
-
-          // Delete CSV after processing
+          // Clean up CSV file
           fs.unlink(filePath, (err) => {
             if (err) console.error("Error deleting file:", err);
-            else console.log("CSV file deleted:", filePath);
           });
 
           return res.status(200).json({
             message: "CSV processed successfully",
-            totalRecords: totalMatching,
-            updatedCount,
-            skippedCount,
+            totalProcessed,
+            modifiedCount,
+            upsertedCount,
           });
         } catch (updateError) {
           console.error("Error updating users:", updateError);
-          return res.status(500).json({
-            error: "Error updating users",
-            details: updateError.message,
-          });
+          return res
+            .status(500)
+            .json({
+              error: "Error updating users",
+              details: updateError.message,
+            });
         }
       })
       .on("error", (csvError) => {
         console.error("Error processing CSV:", csvError);
-        return res.status(500).json({
-          error: "Error processing CSV",
-          details: csvError.message,
-        });
+        return res
+          .status(500)
+          .json({ error: "Error processing CSV", details: csvError.message });
       });
   } catch (error) {
+    console.error("Server error:", error);
     return res
       .status(500)
       .json({ error: "Server error", details: error.message });
