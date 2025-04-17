@@ -1,9 +1,10 @@
-import pkg from "xmlbuilder2";
-const { xml } = pkg;
+import { create } from "xmlbuilder2";
+import fs from "fs";
 
+// Returns XML to play custom audio and capture DTMF input
 export const plivoAnswer = async (req, res) => {
   try {
-    const responseXml = xml({ version: "1.0" })
+    const responseXml = create({ version: "1.0" })
       .ele("Response")
       .ele("GetDigits", {
         action: "https://campdash.onrender.com/plivo/answer-handle",
@@ -29,6 +30,7 @@ export const plivoAnswer = async (req, res) => {
   }
 };
 
+// Handles DTMF input from the user and logs the result
 export const plivoAnswerHandle = async (req, res) => {
   const { CallUUID, From, To, Digits } = req.body;
 
@@ -55,6 +57,7 @@ export const plivoAnswerHandle = async (req, res) => {
   );
 };
 
+// Handles hangup events and logs them
 export const plivoHangup = async (req, res) => {
   const { CallUUID, From, To, EndTime, HangupCause } = req.body;
 
