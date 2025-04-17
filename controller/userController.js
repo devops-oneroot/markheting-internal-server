@@ -327,16 +327,16 @@ export const updateDatabase = async (req, res) => {
     // iterate through database users and update only those found in api data
     for (const dbUser of dbUsers) {
       const apiUser = apiUsersMap.get(dbUser.number);
-      const concentDate = dbUser.consent_date
-        ? dbUser.consent_date
-        : new Date().toISOString();
       if (apiUser) {
         matchedCount++;
         let isDownloaded = false;
         let downloadedDate = "";
+        const concentDate = dbUser.consent_date
+        ? dbUser.consent_date
+        : apiUser.createdAt
         if (apiUser.fcmToken && !apiUser.fcmToken.startsWith("dummy")) {
           isDownloaded = true;
-          downloadedDate = new Date().toISOString();
+          downloadedDate = apiUser.createdAt;
         }
         console.log(
           `matched user ${dbUser.number}: api fcmToken = ${apiUser.fcmToken} | setting downloaded: ${isDownloaded}, downloaded_date: ${downloadedDate}`
@@ -348,7 +348,7 @@ export const updateDatabase = async (req, res) => {
               $set: {
                 downloaded: isDownloaded,
                 downloaded_date: downloadedDate,
-                concent: "yes",
+                consent: "yes",
                 consent_date: concentDate,
               },
             },

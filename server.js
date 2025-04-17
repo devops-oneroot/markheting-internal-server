@@ -290,7 +290,7 @@ if (cluster.isPrimary) {
         }
       });
 
-      const PORT = process.env.PORT || 3001;
+      const PORT = process.env.PORT || 3005;
       server.listen(PORT, () => {
         console.log(`Worker ${process.pid} listening on port ${PORT}`);
       });
