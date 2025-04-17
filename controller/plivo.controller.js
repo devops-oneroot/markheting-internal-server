@@ -2,26 +2,31 @@ import pkg from "xmlbuilder2";
 const { xml } = pkg;
 
 export const plivoAnswer = async (req, res) => {
-  const responseXml = xml({ version: "1.0" })
-    .ele("Response")
-    .ele("GetDigits", {
-      action: "https://campdash.onrender.com/plivo/answer-handle",
-      method: "POST",
-      timeout: "10",
-      numDigits: "1",
-    })
-    .ele("Play")
-    .txt(
-      "https://codeskulptor-demos.commondatastorage.googleapis.com/pang/paza-moduless.mp3"
-    )
-    .up()
-    .up()
-    .ele("Speak")
-    .txt("We did not receive any input. Goodbye!")
-    .end({ prettyPrint: true });
+  try {
+    const responseXml = xml({ version: "1.0" })
+      .ele("Response")
+      .ele("GetDigits", {
+        action: "https://campdash.onrender.com/plivo/answer-handle",
+        method: "POST",
+        timeout: "10",
+        numDigits: "1",
+      })
+      .ele("Play")
+      .txt(
+        "https://codeskulptor-demos.commondatastorage.googleapis.com/pang/paza-moduless.mp3"
+      )
+      .up()
+      .up()
+      .ele("Speak")
+      .txt("We did not receive any input. Goodbye!")
+      .end({ prettyPrint: true });
 
-  res.set("Content-Type", "text/xml");
-  res.send(responseXml);
+    res.set("Content-Type", "text/xml");
+    res.send(responseXml);
+  } catch (error) {
+    console.error("Plivo XML generation failed:", error);
+    res.status(500).send("Internal server error");
+  }
 };
 
 export const plivoAnswerHandle = async (req, res) => {
