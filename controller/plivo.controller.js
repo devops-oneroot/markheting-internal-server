@@ -4,6 +4,7 @@ import fs from "fs";
 // Returns XML to play custom audio and capture DTMF input
 export const plivoAnswer = async (req, res) => {
   try {
+    console.log("Plivo answer");
     const responseXml = create({ version: "1.0" })
       .ele("Response")
       .ele("GetDigits", {
@@ -59,6 +60,7 @@ export const plivoAnswerHandle = async (req, res) => {
 
 // Handles hangup events and logs them
 export const plivoHangup = async (req, res) => {
+  console.log("Plivo hang");
   const { CallUUID, From, To, EndTime, HangupCause } = req.body;
 
   const hangupData = {
