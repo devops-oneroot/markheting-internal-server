@@ -3,6 +3,7 @@ import plivo from "plivo";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import PlivoReport from "./../../model/plivo-job-report.model.js";
+import mongoose from "mongoose";
 
 dotenv.config();
 
