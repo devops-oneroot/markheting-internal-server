@@ -3,6 +3,7 @@ import fs from "fs";
 import PlivoReport from "../model/plivo-job-report.model.js";
 import { getISTDateRange } from "../utils/plivo/index.js";
 import dotenv from "dotenv";
+import mongoose from "mongoose";
 
 dotenv.config();
 
