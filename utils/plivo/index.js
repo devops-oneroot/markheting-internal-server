@@ -15,7 +15,7 @@ export async function getTodayCampaign() {
   });
 }
 
-function getISTDateRange() {
+export function getISTDateRange() {
   const now = new Date();
   const istOffsetMinutes = 330;
 
