@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const reportEntrySchema = new mongoose.Schema({
   cropname: {
     type: String,
-    required: true,
+    default: "",
     trim: true,
   },
   number: {
