@@ -1,7 +1,7 @@
 import { create } from "xmlbuilder2";
 import fs from "fs";
 import PlivoReport from "../model/plivo-job-report.model.js";
-
+import { getISTDateRange } from "../utils/plivo/index.js";
 // Returns XML to play custom audio and capture DTMF input
 export const plivoAnswer = async (req, res) => {
   try {
@@ -60,8 +60,10 @@ export const plivoAnswerHandle = async (req, res) => {
 
     // 3) Find today’s campaign
     const campaign = await PlivoReport.findOne({
-      campaign_date: { $gte: istToday, $lt: istTomorrow },
+      campaign_date: istToday,
     });
+
+    console.log(campaign, "campaig");
 
     if (campaign) {
       campaign.campaign_report.push({
@@ -115,23 +117,3 @@ export const plivoHangup = async (req, res) => {
 
   res.status(200).send("Hangup event received");
 };
-
-//helper function
-function getISTDateRange() {
-  const now = new Date();
-
-  // Convert to IST by using toLocaleString in Asia/Kolkata
-  const istNow = new Date(
-    now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
-  );
-
-  // Get IST midnight today
-  const istToday = new Date(istNow);
-  istToday.setHours(0, 0, 0, 0);
-
-  // Get IST midnight tomorrow
-  const istTomorrow = new Date(istToday);
-  istTomorrow.setDate(istTomorrow.getDate() + 1);
-
-  return { istToday, istTomorrow };
-}

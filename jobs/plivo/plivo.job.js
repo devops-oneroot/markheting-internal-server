@@ -3,6 +3,7 @@ import plivo from "plivo";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import PlivoReport from "./../../model/plivo-job-report.model.js";
+import { getISTDateRange } from "../../utils/plivo/index.js";
 
 dotenv.config();
 
@@ -33,8 +34,10 @@ export async function runPlivoCampaign() {
     new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
   );
 
+  const { istToday } = getISTDateRange();
+
   // 1) Create a new campaign document for *today*
-  const todayCampaign = await PlivoReport.create({});
+  const todayCampaign = await PlivoReport.create({ campaign_date: istToday });
 
   // 2) Your buyers list (replace with real fetch)
   const buyers = [
