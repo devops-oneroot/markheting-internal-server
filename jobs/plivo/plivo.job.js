@@ -39,6 +39,7 @@ function getISTTodayInUTC() {
 
 // === Main Campaign Logic ===
 export async function runPlivoCampaign() {
+  const todayUTC = getISTTodayInUTC();
 
   // ✅ Ensure one campaign per day
   const campaign = await PlivoReport.findOneAndUpdate(
