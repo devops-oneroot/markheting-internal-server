@@ -15,30 +15,17 @@ export async function getTodayCampaign() {
   });
 }
 
-export function getISTDateRange() {
+function getISTDateRange() {
   const now = new Date();
-
-  // Get IST offset in minutes (+5:30 = 330)
   const istOffsetMinutes = 330;
 
-  // Convert to IST
   const istNow = new Date(now.getTime() + istOffsetMinutes * 60000);
-
-  // Get IST midnight today
   const istMidnight = new Date(istNow);
   istMidnight.setHours(0, 0, 0, 0);
 
-  // Convert IST midnight today to UTC
   const utcToday = new Date(istMidnight.getTime() - istOffsetMinutes * 60000);
-
-  // IST midnight tomorrow
-  const istTomorrowMidnight = new Date(istMidnight);
-  istTomorrowMidnight.setDate(istTomorrowMidnight.getDate() + 1);
-
-  // Convert to UTC
-  const utcTomorrow = new Date(
-    istTomorrowMidnight.getTime() - istOffsetMinutes * 60000
-  );
+  const utcTomorrow = new Date(utcToday);
+  utcTomorrow.setDate(utcTomorrow.getDate() + 1);
 
   return { istToday: utcToday, istTomorrow: utcTomorrow };
 }

@@ -60,7 +60,7 @@ export const plivoAnswerHandle = async (req, res) => {
 
     // 3) Find today’s campaign
     const campaign = await PlivoReport.findOne({
-      campaign_date: istToday,
+      campaign_date: { $gte: istToday, $lt: istTomorrow },
     });
 
     console.log(campaign, "campaig");
@@ -116,4 +116,26 @@ export const plivoHangup = async (req, res) => {
   );
 
   res.status(200).send("Hangup event received");
+};
+
+export const getTodayCampaign = async (req, res) => {
+  try {
+    const { istToday, istTomorrow } = getISTDateRange();
+
+    const todayCampaign = await PlivoReport.findOne({
+      campaign_date: {
+        $gte: istToday,
+        $lt: istTomorrow,
+      },
+    });
+
+    if (!todayCampaign) {
+      return res.status(404).json({ message: "No campaign found for today" });
+    }
+
+    res.json(todayCampaign);
+  } catch (err) {
+    console.error("💥 Error getting today's campaign:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
 };
