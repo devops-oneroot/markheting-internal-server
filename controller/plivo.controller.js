@@ -1,24 +1,6 @@
 import { create } from "xmlbuilder2";
 import fs from "fs";
 import PlivoReport from "../model/plivo-job-report.model.js";
-import { getISTDateRange } from "../utils/plivo/index.js";
-import dotenv from "dotenv";
-import mongoose from "mongoose";
-
-dotenv.config();
-
-async function connectMongo() {
-  try {
-    await mongoose.connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-    console.log("✅ MongoDB connected");
-  } catch (err) {
-    console.error("❌ MongoDB connection error:", err);
-    process.exit(1);
-  }
-}
 
 export const plivoAnswer = async (req, res) => {
   try {
@@ -54,12 +36,7 @@ export const plivoAnswer = async (req, res) => {
 // Handles DTMF input from the user and logs the result
 export const plivoAnswerHandle = async (req, res) => {
   const reportId = req.query.reportId;
-  console.log(reportId, "here");
   try {
-    // 1) Log incoming request body for debugging
-    console.log("📥 plivoAnswerHandle raw body:", req.body);
-    console.log("📥 plivoAnswerHandle keys:", Object.keys(req.body));
-
     const { To, Digits } = req.body;
 
     if (!To || !Digits) {
@@ -68,18 +45,6 @@ export const plivoAnswerHandle = async (req, res) => {
     }
 
     const ready = Digits === "1";
-
-    // 2) Get IST time range
-    const { istToday, istTomorrow } = getISTDateRange();
-
-    console.log(
-      "📆 Looking for campaign between:",
-      istToday.toISOString(),
-      "and",
-      istTomorrow.toISOString()
-    );
-
-    await connectMongo();
 
     // 3) Find today’s campaign
     const campaign = await PlivoReport.findById(reportId);
@@ -137,26 +102,4 @@ export const plivoHangup = async (req, res) => {
   );
 
   res.status(200).send("Hangup event received");
-};
-
-export const getTodayCampaign = async (req, res) => {
-  try {
-    const { istToday, istTomorrow } = getISTDateRange();
-
-    const todayCampaign = await PlivoReport.findOne({
-      campaign_date: {
-        $gte: istToday,
-        $lt: istTomorrow,
-      },
-    });
-
-    if (!todayCampaign) {
-      return res.status(404).json({ message: "No campaign found for today" });
-    }
-
-    res.json(todayCampaign);
-  } catch (err) {
-    console.error("💥 Error getting today's campaign:", err);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
 };

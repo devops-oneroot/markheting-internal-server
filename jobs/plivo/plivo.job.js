@@ -6,37 +6,15 @@ import PlivoReport from "./../../model/plivo-job-report.model.js";
 
 dotenv.config();
 
+// === Plivo Setup ===
 const client = new plivo.Client(
   process.env.PLIVO_AUTH_ID,
   process.env.PLIVO_AUTH_TOKEN
 );
-
 const SOURCE_NUMBER = process.env.PLIVO_SOURCE_NUMBER;
 const ANSWER_URL = "https://campdash.onrender.com/plivo/answer";
 
-// 🔧 Utility to compute IST today and tomorrow in UTC
-function getISTDateRange() {
-  const now = new Date();
-  const istOffsetMinutes = 330;
-
-  const istNow = new Date(now.getTime() + istOffsetMinutes * 60000);
-
-  const istMidnight = new Date(istNow);
-  istMidnight.setHours(0, 0, 0, 0);
-
-  const utcToday = new Date(istMidnight.getTime() - istOffsetMinutes * 60000);
-
-  const istTomorrowMidnight = new Date(istMidnight);
-  istTomorrowMidnight.setDate(istTomorrowMidnight.getDate() + 1);
-
-  const utcTomorrow = new Date(
-    istTomorrowMidnight.getTime() - istOffsetMinutes * 60000
-  );
-
-  return { istToday: utcToday, istTomorrow: utcTomorrow };
-}
-
-// ✅ MongoDB connection
+// === DB Connection ===
 async function connectMongo() {
   try {
     await mongoose.connect(process.env.MONGO_URI, {
@@ -50,31 +28,28 @@ async function connectMongo() {
   }
 }
 
-// 🚀 Campaign Runner
+// === Utility: Get IST Midnight in UTC ===
+function getISTTodayInUTC() {
+  const now = new Date();
+  const istOffset = 330 * 60 * 1000;
+  const ist = new Date(now.getTime() + istOffset);
+  ist.setHours(0, 0, 0, 0);
+  return new Date(ist.getTime() - istOffset);
+}
+
+// === Main Campaign Logic ===
 export async function runPlivoCampaign() {
-  console.log(
-    "🕚 Running campaign at:",
-    new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
+
+  // ✅ Ensure one campaign per day
+  const campaign = await PlivoReport.findOneAndUpdate(
+    { campaign_date: todayUTC },
+    {},
+    { upsert: true, new: true }
   );
 
-  const { istToday } = getISTDateRange();
+  const reportId = campaign.id;
 
-  console.log("📅 IST Today (UTC):", istToday.toISOString());
-
-  // ✅ Ensure only one campaign per day
-  let todayCampaign = await PlivoReport.findOne({ campaign_date: istToday });
-
-  if (!todayCampaign) {
-    todayCampaign = await PlivoReport.create({ campaign_date: istToday });
-    console.log("🆕 Created new campaign document");
-  } else {
-    console.log("ℹ️ Campaign for today already exists");
-  }
-
-  let reportId = todayCampaign.id;
-  console.log(reportId);
-
-  // 🎯 Buyers to be called
+  // 📞 Buyers to call
   const buyers = [
     { phoneNumber: "+917204408035", cropname: "tender coconut" },
     { phoneNumber: "+919900768505", cropname: "banana" },
@@ -82,31 +57,30 @@ export async function runPlivoCampaign() {
 
   for (const { phoneNumber } of buyers) {
     try {
+      const callUrl = `${ANSWER_URL}?reportId=${reportId}`;
       const resp = await client.calls.create(
         SOURCE_NUMBER,
         phoneNumber,
-        `${ANSWER_URL}?reportId=${reportId}`,
-        { method: "GET" }
+        callUrl,
+        {
+          method: "GET",
+        }
       );
-      console.log(`✅ Called ${phoneNumber}, UUID=${resp.requestUuid}`);
+      console.log(`✅ Called ${phoneNumber} | UUID: ${resp.requestUuid}`);
     } catch (err) {
-      console.error(`❌ Failed to call ${phoneNumber}:`, err.message);
+      console.error(
+        `❌ Call failed to ${phoneNumber} | Reason: ${err.message}`
+      );
     }
   }
 }
 
-// 🕰️ Schedule cron job: Every day at 11:15 AM IST
-cron.schedule(
-  "15 11 * * *",
-  () => {
-    runPlivoCampaign().catch(console.error);
-  },
-  { timezone: "Asia/Kolkata" }
-);
-
-console.log("⏰ Cron job scheduled: every day at 11:15 AM IST");
-
-// 🔌 Initial boot-up: connect DB and optionally trigger campaign once
-connectMongo().then(() => {
-  runPlivoCampaign().then(() => console.log("✅ Initial campaign completed"));
+// === Schedule: Every day at 11:15 AM IST ===
+cron.schedule("15 11 * * *", () => runPlivoCampaign().catch(console.error), {
+  timezone: "Asia/Kolkata",
 });
+
+console.log("⏰ Cron scheduled: Every day at 11:15 AM IST");
+
+// === Start App ===
+connectMongo().then(runPlivoCampaign);
