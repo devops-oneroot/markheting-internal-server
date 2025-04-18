@@ -23,8 +23,7 @@ async function connectMongo() {
 export const plivoAnswer = async (req, res) => {
   try {
     console.log("Plivo answer");
-    const tag = req.body.Tag;
-    const reportId = tag?.startsWith("report:") ? tag.split(":")[1] : null;
+    const reportId = req.query.reportId;
 
     const responseXml = create({ version: "1.0" })
       .ele("Response")

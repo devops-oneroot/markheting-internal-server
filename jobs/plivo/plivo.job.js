@@ -85,8 +85,8 @@ export async function runPlivoCampaign() {
       const resp = await client.calls.create(
         SOURCE_NUMBER,
         phoneNumber,
-        ANSWER_URL,
-        { method: "GET", tag: `report:${reportId}` }
+        `${ANSWER_URL}?reportId=${reportId}`,
+        { method: "GET" }
       );
       console.log(`✅ Called ${phoneNumber}, UUID=${resp.requestUuid}`);
     } catch (err) {
