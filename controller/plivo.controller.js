@@ -2,7 +2,23 @@ import { create } from "xmlbuilder2";
 import fs from "fs";
 import PlivoReport from "../model/plivo-job-report.model.js";
 import { getISTDateRange } from "../utils/plivo/index.js";
-// Returns XML to play custom audio and capture DTMF input
+import dotenv from "dotenv";
+
+dotenv.config();
+
+async function connectMongo() {
+  try {
+    await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log("✅ MongoDB connected");
+  } catch (err) {
+    console.error("❌ MongoDB connection error:", err);
+    process.exit(1);
+  }
+}
+
 export const plivoAnswer = async (req, res) => {
   try {
     console.log("Plivo answer");
@@ -57,6 +73,8 @@ export const plivoAnswerHandle = async (req, res) => {
       "and",
       istTomorrow.toISOString()
     );
+
+    await connectMongo();
 
     // 3) Find today’s campaign
     const campaign = await PlivoReport.findOne({

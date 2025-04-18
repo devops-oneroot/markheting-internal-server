@@ -27,6 +27,10 @@ if (cluster.isPrimary) {
   connectDB()
     .then(() => {
       const server = express();
+      const PORT = process.env.PORT || 3005;
+      server.listen(PORT, () => {
+        console.log(`Worker ${process.pid} listening on port ${PORT}`);
+      });
 
       server.use(express.json());
       server.use(express.urlencoded({ extended: true }));
@@ -292,10 +296,6 @@ if (cluster.isPrimary) {
         }
       });
 
-      const PORT = process.env.PORT || 3005;
-      server.listen(PORT, () => {
-        console.log(`Worker ${process.pid} listening on port ${PORT}`);
-      });
     })
     .catch((err) => {
       console.error(`Worker ${process.pid} failed to connect to MongoDB:`, err);
