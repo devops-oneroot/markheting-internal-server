@@ -1,5 +1,6 @@
 import { create } from "xmlbuilder2";
 import fs from "fs";
+import PlivoReport from "../model/plivo-job-report.model.js";
 
 // Returns XML to play custom audio and capture DTMF input
 export const plivoAnswer = async (req, res) => {

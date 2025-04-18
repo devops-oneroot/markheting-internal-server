@@ -1,7 +1,8 @@
 import cron from "node-cron";
 import plivo from "plivo";
 import dotenv from "dotenv";
-import PlivoReport from "../../model/plivo-job-report.model.js";
+import mongoose from "mongoose";
+import PlivoReport from "./../../model/plivo-job-report.model.js";
 
 dotenv.config();
 
@@ -11,6 +12,20 @@ const client = new plivo.Client(
 );
 const SOURCE_NUMBER = process.env.PLIVO_SOURCE_NUMBER;
 const ANSWER_URL = "https://campdash.onrender.com/plivo/answer";
+
+// MongoDB connection
+async function connectMongo() {
+  try {
+    await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log("✅ MongoDB connected");
+  } catch (err) {
+    console.error("❌ MongoDB connection error:", err);
+    process.exit(1); // Exit if DB fails
+  }
+}
 
 export async function runPlivoCampaign() {
   console.log(
@@ -43,7 +58,7 @@ export async function runPlivoCampaign() {
   }
 }
 
-// Schedule daily at 11:15 AM IST
+// Schedule daily at 11:15 AM IST
 cron.schedule(
   "15 11 * * *",
   () => {
@@ -52,4 +67,9 @@ cron.schedule(
   { timezone: "Asia/Kolkata" }
 );
 
-console.log("⏰ Cron job scheduled: daily at 11:15 AM IST");
+console.log("⏰ Cron job scheduled: daily at 11:15 AM IST");
+
+// ✅ Connect DB first, then run initial campaign manually (optional)
+connectMongo().then(() => {
+  runPlivoCampaign().then(() => console.log("✅ Initial campaign done"));
+});
