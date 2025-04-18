@@ -60,9 +60,9 @@ export const plivoAnswerHandle = async (req, res) => {
     console.log("📥 plivoAnswerHandle raw body:", req.body);
     console.log("📥 plivoAnswerHandle keys:", Object.keys(req.body));
 
-    const { From, Digits } = req.body;
+    const { To, Digits } = req.body;
 
-    if (!From || !Digits) {
+    if (!To || !Digits) {
       console.warn("❌ Missing 'From' or 'Digits' in Plivo response");
       return res.status(400).send("Missing required input");
     }
@@ -89,13 +89,13 @@ export const plivoAnswerHandle = async (req, res) => {
     if (campaign) {
       campaign.campaign_report.push({
         cropname: "", // Optional: add logic to fetch correct cropname
-        number: From,
+        number: To,
         given_on: new Date(),
         ready,
       });
 
       await campaign.save();
-      console.log(`✅ Recorded response for ${From}, ready: ${ready}`);
+      console.log(`✅ Recorded response for ${To}, ready: ${ready}`);
     } else {
       console.warn("⚠️ No campaign found for today to record DTMF");
     }
