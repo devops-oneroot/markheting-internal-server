@@ -23,10 +23,13 @@ async function connectMongo() {
 export const plivoAnswer = async (req, res) => {
   try {
     console.log("Plivo answer");
+    const tag = req.body.Tag;
+    const reportId = tag?.startsWith("report:") ? tag.split(":")[1] : null;
+
     const responseXml = create({ version: "1.0" })
       .ele("Response")
       .ele("GetDigits", {
-        action: "https://campdash.onrender.com/plivo/answer-handle",
+        action: `https://campdash.onrender.com/plivo/answer-handle?reportId=${reportId}`,
         method: "POST",
         timeout: "10",
         numDigits: "1",
@@ -51,6 +54,8 @@ export const plivoAnswer = async (req, res) => {
 
 // Handles DTMF input from the user and logs the result
 export const plivoAnswerHandle = async (req, res) => {
+  const reportId = req.query.reportId;
+  console.log(reportId, "here");
   try {
     // 1) Log incoming request body for debugging
     console.log("📥 plivoAnswerHandle raw body:", req.body);
@@ -78,9 +83,7 @@ export const plivoAnswerHandle = async (req, res) => {
     await connectMongo();
 
     // 3) Find today’s campaign
-    const campaign = await PlivoReport.findOne({
-      campaign_date: { $gte: istToday, $lt: istTomorrow },
-    });
+    const campaign = await PlivoReport.findById(reportId);
 
     console.log(campaign, "campaig");
 

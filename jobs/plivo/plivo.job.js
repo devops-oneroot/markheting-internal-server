@@ -71,6 +71,9 @@ export async function runPlivoCampaign() {
     console.log("ℹ️ Campaign for today already exists");
   }
 
+  let reportId = todayCampaign.id;
+  console.log(reportId);
+
   // 🎯 Buyers to be called
   const buyers = [
     { phoneNumber: "+917204408035", cropname: "tender coconut" },
@@ -83,7 +86,7 @@ export async function runPlivoCampaign() {
         SOURCE_NUMBER,
         phoneNumber,
         ANSWER_URL,
-        { method: "GET" }
+        { method: "GET", tag: `report:${reportId}` }
       );
       console.log(`✅ Called ${phoneNumber}, UUID=${resp.requestUuid}`);
     } catch (err) {
