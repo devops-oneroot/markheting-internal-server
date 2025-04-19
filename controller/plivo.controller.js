@@ -6,11 +6,12 @@ export const plivoAnswer = async (req, res) => {
   try {
     console.log("Plivo answer");
     const reportId = req.query.reportId;
+    const cropName = req.query.cropName;
 
     const responseXml = create({ version: "1.0" })
       .ele("Response")
       .ele("GetDigits", {
-        action: `https://campdash.onrender.com/plivo/answer-handle?reportId=${reportId}`,
+        action: `https://campdash.onrender.com/plivo/answer-handle?reportId=${reportId}?cropName=${cropName}`,
         method: "POST",
         timeout: "10",
         numDigits: "1",
@@ -36,6 +37,7 @@ export const plivoAnswer = async (req, res) => {
 // Handles DTMF input from the user and logs the result
 export const plivoAnswerHandle = async (req, res) => {
   const reportId = req.query.reportId;
+  const cropName = req.query.cropName;
   try {
     const { To, Digits } = req.body;
 
@@ -53,7 +55,7 @@ export const plivoAnswerHandle = async (req, res) => {
 
     if (campaign) {
       campaign.campaign_report.push({
-        cropname: "", // Optional: add logic to fetch correct cropname
+        cropname: cropName,
         number: To,
         given_on: new Date(),
         ready,
