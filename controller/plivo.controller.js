@@ -11,7 +11,7 @@ export const plivoAnswer = async (req, res) => {
     const responseXml = create({ version: "1.0" })
       .ele("Response")
       .ele("GetDigits", {
-        action: `https://campdash.onrender.com/plivo/answer-handle?reportId=${reportId}?cropName=${cropName}`,
+        action: `https://campdash.onrender.com/plivo/answer-handle?reportId=${reportId}&cropName=${cropName}`,
         method: "POST",
         timeout: "10",
         numDigits: "1",
@@ -36,8 +36,10 @@ export const plivoAnswer = async (req, res) => {
 
 // Handles DTMF input from the user and logs the result
 export const plivoAnswerHandle = async (req, res) => {
-  const reportId = req.query.reportId;
+  const reportId = req.query.reportId?.split("?")[0];
+  console.log(reportId, "report id");
   const cropName = req.query.cropName;
+  console.log();
   try {
     const { To, Digits } = req.body;
 

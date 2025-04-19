@@ -58,7 +58,7 @@ export async function runPlivoCampaign() {
 
   for (const { phoneNumber, cropname } of buyers) {
     try {
-      const callUrl = `${ANSWER_URL}?reportId=${reportId}?cropName=${cropname}`;
+      const callUrl = `${ANSWER_URL}?reportId=${reportId}&cropName=${cropname}`;
       const resp = await client.calls.create(
         SOURCE_NUMBER,
         phoneNumber,
