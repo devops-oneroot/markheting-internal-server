@@ -1,4 +1,4 @@
-import User from "../model/user.model.js"; // Import your User model
+import User from "../model/user.model.js";
 import fs from "fs";
 import csvParser from "csv-parser";
 
@@ -14,7 +14,6 @@ export const concentAdd = async (req, res) => {
     fs.createReadStream(filePath)
       .pipe(csvParser())
       .on("data", (data) => {
-        // Normalize phone and consent date
         let phone = data.Phone?.trim() || data.phone?.trim();
         const consentDate = data["Date of Addition"]?.trim() || null;
 
@@ -27,7 +26,6 @@ export const concentAdd = async (req, res) => {
       })
       .on("end", async () => {
         try {
-          // Deduplicate, preferring rows with a consentDate
           const uniquePhoneMap = new Map();
           csvPhones.forEach(({ phone, consentDate }) => {
             if (!uniquePhoneMap.has(phone) || consentDate) {
@@ -40,26 +38,69 @@ export const concentAdd = async (req, res) => {
             ([number, consentDate]) => ({ number, consentDate })
           );
 
-          // Prepare bulk upsert operations
-          const bulkOperations = formattedData.map(
-            ({ number, consentDate }) => ({
-              updateOne: {
-                filter: { number },
-                update: { $set: { consent: "yes", consent_date: consentDate } },
-                upsert: true,
-              },
-            })
+          // Get existing users
+          const existingUsers = await User.find({
+            number: { $in: formattedData.map((d) => d.number) },
+          }).lean();
+
+          const existingMap = new Map(
+            existingUsers.map((user) => [user.number, user])
           );
 
-          // Execute bulkWrite
-          const result = await User.bulkWrite(bulkOperations);
+          const bulkOperations = [];
 
-          // Statistics
+          for (const { number, consentDate } of formattedData) {
+            const user = existingMap.get(number);
+
+            if (!user) {
+              // New user
+              bulkOperations.push({
+                updateOne: {
+                  filter: { number },
+                  update: {
+                    $set: {
+                      consent: "yes",
+                      consent_date: consentDate,
+                    },
+                  },
+                  upsert: true,
+                },
+              });
+            } else {
+              const existingConsent = user.consent;
+              const existingDate = user.consent_date;
+
+              const shouldUpdate =
+                existingConsent !== "yes" ||
+                !existingDate ||
+                new Date(existingDate) < new Date(consentDate);
+
+              if (shouldUpdate) {
+                bulkOperations.push({
+                  updateOne: {
+                    filter: { number },
+                    update: {
+                      $set: {
+                        consent: "yes",
+                        consent_date: consentDate,
+                      },
+                    },
+                    upsert: false,
+                  },
+                });
+              }
+            }
+          }
+
+          const result =
+            bulkOperations.length > 0
+              ? await User.bulkWrite(bulkOperations)
+              : { modifiedCount: 0, upsertedCount: 0 };
+
           const modifiedCount = result.modifiedCount || 0;
           const upsertedCount = result.upsertedCount || 0;
           const totalProcessed = formattedData.length;
 
-          // Clean up CSV file
           fs.unlink(filePath, (err) => {
             if (err) console.error("Error deleting file:", err);
           });
@@ -69,6 +110,7 @@ export const concentAdd = async (req, res) => {
             totalProcessed,
             modifiedCount,
             upsertedCount,
+            skipped: totalProcessed - (modifiedCount + upsertedCount),
           });
         } catch (updateError) {
           console.error("Error updating users:", updateError);
@@ -80,15 +122,17 @@ export const concentAdd = async (req, res) => {
       })
       .on("error", (csvError) => {
         console.error("Error processing CSV:", csvError);
-        return res
-          .status(500)
-          .json({ error: "Error processing CSV", details: csvError.message });
+        return res.status(500).json({
+          error: "Error processing CSV",
+          details: csvError.message,
+        });
       });
   } catch (error) {
     console.error("Server error:", error);
-    return res
-      .status(500)
-      .json({ error: "Server error", details: error.message });
+    return res.status(500).json({
+      error: "Server error",
+      details: error.message,
+    });
   }
 };
 

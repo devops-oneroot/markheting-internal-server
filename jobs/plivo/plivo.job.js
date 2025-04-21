@@ -3,6 +3,7 @@ import plivo from "plivo";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import PlivoReport from "./../../model/plivo-job-report.model.js";
+import fetch from "node-fetch";
 
 dotenv.config();
 
@@ -42,11 +43,23 @@ export async function runPlivoCampaign() {
 
   const reportId = campaign._id.toString();
 
-  // List of buyers to call
-  const buyers = [
-    { phoneNumber: "+917204408035", cropname: "tender coconut" },
-    { phoneNumber: "+919900768505", cropname: "banana" },
-  ];
+  // Fetch list of buyers from API using node-fetch
+  let buyers = [];
+  try {
+    const response = await fetch(`http://localhost:3002/crop/rth/number`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    buyers = data.data.map(({ phoneNumber, cropname }) => ({
+      phoneNumber,
+      cropname,
+    }));
+    console.log("✅ Buyers fetched from API:", buyers);
+  } catch (err) {
+    console.error("❌ Failed to fetch buyers from API:", err.message);
+    return; // Exit the function if buyers cannot be fetched
+  }
 
   for (const { phoneNumber, cropname } of buyers) {
     const callUrl = `${ANSWER_URL}?reportId=${reportId}&cropName=${encodeURIComponent(
