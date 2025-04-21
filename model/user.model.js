@@ -19,6 +19,7 @@ const userSchema = new mongoose.Schema(
     downloaded_date: { type: String, default: null },
     onboarded_date: { type: String, default: null },
     pincode: { type: Number, default: null },
+    coordinates: { type: String, default: null },
   },
   { timestamps: true }
 );

@@ -99,102 +99,107 @@ export const importCsv = async (req, res) => {
     }
 
     const filePath = req.file.path;
-    const results = [];
+    const rows = [];
 
-    fs.createReadStream(filePath)
-      .pipe(csvParser())
-      .on("data", (data) => {
-        // Normalize all keys to lowercase.
-        const normalizedData = {};
-        Object.keys(data).forEach((key) => {
-          normalizedData[key.toLowerCase()] = data[key];
-        });
-
-        // Remove any empty key (possible due to an extra column).
-        if (normalizedData[""] !== undefined) {
-          delete normalizedData[""];
-        }
-
-        results.push(normalizedData);
-      })
-      .on("end", async () => {
-        try {
-          // Extract and trim the 'number' field from each row.
-          const csvNumbers = results
-            .map((row) => (row.number ? row.number.trim() : ""))
-            .filter((num) => num !== "");
-
-          // Create a set of unique numbers for querying existing users in the DB.
-          const uniqueNumbers = [...new Set(csvNumbers)];
-          console.log("Unique phones extracted from CSV:", uniqueNumbers);
-
-          // Query the database for existing users based on these numbers.
-          const existingUsers = await User.find(
-            { number: { $in: uniqueNumbers } },
-            { number: 1 }
-          );
-          const existingNumbers = existingUsers.map((user) => user.number);
-
-          // Filter out rows that already exist in the DB and also deduplicate entries from CSV,
-          // only inserting the first occurrence.
-          const newRecords = [];
-          const seenNumbers = new Set();
-          results.forEach((row) => {
-            if (row.number) {
-              const trimmedNumber = row.number.trim();
-              // If number does not exist in DB and has not yet been processed, add it
-              if (
-                !existingNumbers.includes(trimmedNumber) &&
-                !seenNumbers.has(trimmedNumber)
-              ) {
-                seenNumbers.add(trimmedNumber);
-                newRecords.push(row);
-              }
-            }
+    // 1. Read & normalize CSV
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(filePath)
+        .pipe(csvParser())
+        .on("data", (data) => {
+          const normalized = {};
+          Object.entries(data).forEach(([key, val]) => {
+            const k = key.trim().toLowerCase();
+            if (k) normalized[k] = typeof val === "string" ? val.trim() : val;
           });
+          rows.push(normalized);
+        })
+        .on("end", resolve)
+        .on("error", reject);
+    });
 
-          console.log("Total records in CSV:", results.length);
-          console.log("Unique numbers in CSV:", uniqueNumbers.length);
-          console.log("Existing numbers in DB:", existingNumbers.length);
-          console.log("New records to insert:", newRecords.length);
+    // 2. Extract unique phone numbers
+    const csvNumbers = rows
+      .map((r) => r.number)
+      .filter((num) => typeof num === "string" && num !== "");
+    const uniqueNumbers = [...new Set(csvNumbers)];
 
-          // Insert only the new records.
-          if (newRecords.length > 0) {
-            await User.insertMany(newRecords, { ordered: false });
+    // 3. Fetch existing users
+    const existingUsers = await User.find({
+      number: { $in: uniqueNumbers },
+    }).lean();
+    const existingMap = existingUsers.reduce((m, u) => {
+      m[u.number] = u;
+      return m;
+    }, {});
+
+    // 4. Prepare bulk operations
+    const seenNew = new Set();
+    const bulkOps = [];
+
+    for (const row of rows) {
+      const num = row.number;
+      if (!num) continue;
+
+      if (existingMap[num]) {
+        // existing user → check for missing fields
+        const dbUser = existingMap[num];
+        const toSet = {};
+        for (const [key, val] of Object.entries(row)) {
+          if (key === "number") continue;
+          // only update if CSV has a non‑empty value AND dbUser is missing it
+          if (
+            val !== "" &&
+            (dbUser[key] === undefined ||
+              dbUser[key] === null ||
+              dbUser[key] === "")
+          ) {
+            toSet[key] = val;
           }
-          console.log("CSV data inserted successfully.");
-
-          // Delete the CSV file after processing.
-          fs.unlink(filePath, (err) => {
-            if (err) console.error("Error deleting file:", err);
-            else console.log("CSV file deleted:", filePath);
-          });
-
-          return res.status(200).json({
-            message: "CSV processed successfully",
-            totalRecords: results.length,
-            uniqueNumbers: uniqueNumbers.length,
-            existingNumbers: existingNumbers.length,
-            insertedRecords: newRecords.length,
-          });
-        } catch (error) {
-          console.error("Error processing CSV data:", error);
-          return res.status(500).json({
-            error: "Error processing CSV data",
-            details: error.message,
+        }
+        if (Object.keys(toSet).length > 0) {
+          bulkOps.push({
+            updateOne: {
+              filter: { number: num },
+              update: { $set: toSet },
+            },
           });
         }
-      })
-      .on("error", (error) => {
-        console.error("Error reading CSV file:", error);
-        return res.status(500).json({
-          error: "Error reading CSV file",
-          details: error.message,
-        });
-      });
+      } else {
+        // new user → dedupe within CSV
+        if (!seenNew.has(num)) {
+          seenNew.add(num);
+          bulkOps.push({
+            insertOne: { document: row },
+          });
+        }
+      }
+    }
+
+    // 5. Execute bulkWrite
+    let bulkResult = { insertedCount: 0, modifiedCount: 0 };
+    if (bulkOps.length > 0) {
+      const result = await User.bulkWrite(bulkOps, { ordered: false });
+      bulkResult.insertedCount = result.insertedCount || 0;
+      bulkResult.modifiedCount = result.modifiedCount || 0;
+    }
+
+    // 6. Clean up CSV file
+    fs.unlink(filePath, (err) => {
+      if (err) console.error("Error deleting file:", err);
+    });
+
+    // 7. Respond
+    return res.status(200).json({
+      message: "CSV processed successfully",
+      totalRows: rows.length,
+      uniqueNumbers: uniqueNumbers.length,
+      insertedRecords: bulkResult.insertedCount,
+      updatedRecords: bulkResult.modifiedCount,
+    });
   } catch (error) {
+    console.error("Error in importCsv:", error);
     return res.status(500).json({
-      error: "Server error",
+      error: "Server error during CSV import",
       details: error.message,
     });
   }
