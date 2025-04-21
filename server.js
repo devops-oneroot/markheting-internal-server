@@ -162,36 +162,57 @@ if (cluster.isPrimary) {
       });
 
       // Download CSV of filtered users
+   
+
       server.get("/download-users", async (req, res) => {
         try {
-          const { tag, consent, date, downloaded } = req.query;
+          const { tag, consent, date, downloaded, columns } = req.query;
+      
           let query = {};
-          if (tag) query.tag = tag; // Changed to tags
-          if (consent) query.consent = consent === "yes" ? "yes" : "";
+          if (tag) query.tag = tag;
+          if (consent) query.consent = consent === "yes" ? "yes" : null;
           if (date) query.consent_date = new Date(date);
           if (downloaded === "yes") query.downloaded = true;
           else if (downloaded === "no") query.downloaded = false;
           else if (downloaded === "null") query.downloaded = null;
-
-          const users = await User.find(query);
-          const fields = [
+      
+          const users = await User.find(query).lean();
+      
+          // Frontend-defined allowed fields (this must match frontend column options)
+          const allowedFields = [
             "name",
-            "number",
-            "identity",
-            "tag", // Changed to tags
-            "consent",
-            "consent_date",
-            "downloaded",
-            "downloaded_date",
+            "gov_farmer_id",
+            "age",
+            "pincode",
+            "hobli",
+            "farmer_category",
             "village",
             "taluk",
             "district",
+            "number",
+            "identity",
+            "tag",
+            "consent",
+            "consent_date",
             "createdAt",
             "updatedAt",
+            "downloaded",
+            "downloaded_date",
+            "coordinates"
           ];
-          const json2csvParser = new Parser({ fields });
+      
+          // Use only columns that are valid (present in allowedFields)
+          let selectedFields = allowedFields;
+          if (columns) {
+            const requestedFields = columns.split(",");
+            selectedFields = requestedFields.filter((col) =>
+              allowedFields.includes(col)
+            );
+          }
+      
+          const json2csvParser = new Parser({ fields: selectedFields });
           const csv = json2csvParser.parse(users);
-
+      
           res.header("Content-Type", "text/csv");
           res.attachment(`users_${tag || "all"}_${Date.now()}.csv`);
           res.send(csv);
@@ -200,6 +221,7 @@ if (cluster.isPrimary) {
           res.status(500).json({ error: "Internal Server Error" });
         }
       });
+      
 
       // POST: Add a new user
       server.post("/users", async (req, res) => {
