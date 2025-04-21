@@ -167,11 +167,14 @@ if (cluster.isPrimary) {
           const { tag, consent, date, downloaded } = req.query;
           let query = {};
           if (tag) query.tag = tag; // Changed to tags
-          if (consent) query.consent = consent === "yes" ? "yes" : "";
+          if (consent) query.consent = consent === "yes" ? "yes" : null;
           if (date) query.consent_date = new Date(date);
           if (downloaded === "yes") query.downloaded = true;
           else if (downloaded === "no") query.downloaded = false;
           else if (downloaded === "null") query.downloaded = null;
+
+          console.log(tag,consent,date,downloaded)
+          console.log(query)
 
           const users = await User.find(query);
           const fields = [
