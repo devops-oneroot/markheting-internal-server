@@ -269,105 +269,156 @@ export const concentAddAllowOverwrite = async (req, res) => {
 
 export const updateDatabase = async (req, res) => {
   try {
+    console.log("Starting database update process...");
+
     // 1) Fetch users from the external API
     const apiRes = await fetch(
       "https://markhet-internal.onrender.com/users/farmer"
     );
+
     if (!apiRes.ok) {
       throw new Error(`API fetch failed with status ${apiRes.status}`);
     }
+
     const { data: apiUsers = [] } = await apiRes.json();
     console.log(`Fetched ${apiUsers.length} users from API`);
 
-    // 2) Map API users by normalized mobile number
-    const apiMap = new Map(
-      apiUsers.map((u) => [u.mobileNumber.replace(/^\+91/, ""), u])
-    );
+    // 2) Normalize phone numbers and create a map
+    const normalizePhone = (phone) => {
+      return phone.replace(/^(\+91|91|\+)/, "").trim();
+    };
 
-    // 3) Load DB users needing download
-    const dbUsers = await User.find(
+    const apiMap = new Map();
+    for (const user of apiUsers) {
+      const normalizedNumber = normalizePhone(user.mobileNumber);
+      apiMap.set(normalizedNumber, user);
+    }
+
+    // 3) Get all existing users from DB to avoid duplicates
+    const allDbUsers = await User.find({}, "number");
+    const dbNumberSet = new Set(
+      allDbUsers.map((user) => normalizePhone(user.number))
+    );
+    console.log(`Database currently has ${dbNumberSet.size} users`);
+
+    // 4) Get users that need updating
+    const dbUsersToUpdate = await User.find(
       { downloaded: { $in: [null, false] } },
       "number onboarded_date consent_date"
     );
-    console.log(`Fetched ${dbUsers.length} users from DB`);
+    console.log(`Found ${dbUsersToUpdate.length} users that need updating`);
 
-    const dbNumbers = new Set(dbUsers.map((u) => u.number));
+    // 5) Build bulk update operations
+    const updates = [];
+    for (const dbUser of dbUsersToUpdate) {
+      const normalizedNumber = normalizePhone(dbUser.number);
+      const apiUser = apiMap.get(normalizedNumber);
 
-    // 4) Build bulk‐update ops
-    const updates = dbUsers.reduce(
-      (ops, { number, onboarded_date, consent_date }) => {
-        const apiUser = apiMap.get(number);
-        if (!apiUser) return ops;
+      if (!apiUser) {
+        console.log(`No API match for DB user: ${normalizedNumber}`);
+        continue;
+      }
 
-        const hasToken =
-          apiUser.fcmToken && !apiUser.fcmToken.startsWith("dummy");
-        ops.push({
-          updateOne: {
-            filter: { number },
-            update: {
-              $set: {
-                downloaded: hasToken,
-                downloaded_date: hasToken ? apiUser.createdAt : "",
-                consent: "yes",
-                onboarded_date: onboarded_date ?? apiUser.createdAt,
-                consent_date: consent_date ?? apiUser.createdAt,
-              },
+      const hasToken =
+        apiUser.fcmToken && !apiUser.fcmToken.startsWith("dummy");
+      updates.push({
+        updateOne: {
+          filter: { number: dbUser.number },
+          update: {
+            $set: {
+              downloaded: hasToken,
+              downloaded_date: hasToken ? apiUser.createdAt : "",
+              consent: "yes",
+              onboarded_date: dbUser.onboarded_date ?? apiUser.createdAt,
+              consent_date: dbUser.consent_date ?? apiUser.createdAt,
             },
           },
-        });
-        return ops;
-      },
-      []
-    );
-
-    if (updates.length > 0) {
-      const result = await User.bulkWrite(updates);
-      console.log("Bulk update result:", result);
-    } else {
-      console.log("No existing users to update");
+        },
+      });
     }
 
-    // 5) Prepare new users for insertion
+    // 6) Perform bulk updates
+    let updateResult = { modifiedCount: 0 };
+    if (updates.length > 0) {
+      updateResult = await User.bulkWrite(updates);
+      console.log(`Updated ${updateResult.modifiedCount} existing users`);
+    }
+
+    // 7) Prepare new users for insertion
     const newUsers = [];
-    for (const [number, u] of apiMap.entries()) {
-      if (dbNumbers.has(number)) continue;
-      const hasToken = u.fcmToken && !u.fcmToken.startsWith("dummy");
+    const skippedUsers = [];
+
+    for (const [normalizedNumber, apiUser] of apiMap.entries()) {
+      if (dbNumberSet.has(normalizedNumber)) {
+        continue;
+      }
+
+      const hasToken =
+        apiUser.fcmToken && !apiUser.fcmToken.startsWith("dummy");
       newUsers.push({
-        number,
+        number: normalizedNumber,
         downloaded: hasToken,
-        downloaded_date: hasToken ? u.createdAt : null,
+        downloaded_date: hasToken ? apiUser.createdAt : null,
         consent: "yes",
-        onboarded_date: u.createdAt,
-        consent_date: u.createdAt,
-        pincode: u.pincode,
-        name: u.name,
-        taluk: u.taluk,
-        district: u.district,
-        village: u.village,
+        onboarded_date: apiUser.createdAt,
+        consent_date: apiUser.createdAt,
+        pincode: apiUser.pincode,
+        name: apiUser.name,
+        taluk: apiUser.taluk,
+        district: apiUser.district,
+        village: apiUser.village,
         identity: "Farmer",
         tag: "Markhet_api",
       });
     }
-    console.log(`New users to insert: ${newUsers.length}`);
 
+    console.log(`Found ${newUsers.length} new users to insert`);
+
+    // 8) Insert new users with error handling for duplicates
     let insertedCount = 0;
     if (newUsers.length > 0) {
-      const insertedDocs = await User.insertMany(newUsers);
-      insertedCount = insertedDocs.length;
-      console.log(`Inserted ${insertedCount} new users`);
+      try {
+        // Insert in batches to handle large volumes better
+        const BATCH_SIZE = 100;
+        for (let i = 0; i < newUsers.length; i += BATCH_SIZE) {
+          const batch = newUsers.slice(i, i + BATCH_SIZE);
+          try {
+            const inserted = await User.insertMany(batch, { ordered: false });
+            insertedCount += inserted.length;
+          } catch (batchError) {
+            if (batchError.writeErrors) {
+              // Count successful inserts even when some fail
+              const successfulInserts = batchError.insertedDocs?.length || 0;
+              insertedCount += successfulInserts;
+              console.log(
+                `Batch had ${successfulInserts} successful inserts and ${batchError.writeErrors.length} errors`
+              );
+            } else {
+              throw batchError; // Rethrow if it's not a duplicate key error
+            }
+          }
+        }
+      } catch (insertError) {
+        console.error("Error during bulk insertion:", insertError);
+      }
     }
 
-    // 6) Send final response
+    console.log(`Successfully inserted ${insertedCount} new users`);
+
+    // 9) Send response
     return res.status(200).json({
       message: "Database updated successfully",
-      updatedCount: updates.length,
+      updatedCount: updateResult.modifiedCount,
       insertedCount,
+      totalApiUsers: apiUsers.length,
+      totalDbUsers: dbNumberSet.size + insertedCount,
     });
   } catch (error) {
     console.error("Error updating database:", error);
     return res.status(500).json({
       message: "Internal server error",
       details: error.message,
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
     });
   }
 };
