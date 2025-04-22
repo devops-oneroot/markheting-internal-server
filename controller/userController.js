@@ -366,9 +366,13 @@ export const updateDatabase = async (req, res) => {
 
     let insertedCount = 0;
     if (newUsers.length > 0) {
-      const inserted = await User.insertMany(newUsers, { ordered: false });
-      insertedCount = inserted.length;
-      console.log(`inserted ${insertedCount} new users`);
+      try {
+        const inserted = await User.insertMany(newUsers, { ordered: false });
+        insertedCount = inserted.length;
+        console.log(`inserted ${insertedCount} new users`);
+      } catch (error) {
+        console.log(error, "error in iserting new users");
+      }
     } else {
       console.log("no new users to insert.");
     }
