@@ -269,86 +269,121 @@ export const concentAddAllowOverwrite = async (req, res) => {
 
 export const updateDatabase = async (req, res) => {
   try {
-    // fetch users from api
-    const response = await fetch(`https://markhet-internal.onrender.com/users`);
+    // 1) Fetch users from the external API
+    const response = await fetch("https://markhet-internal.onrender.com/users");
     const apiUsers = await response.json();
     console.log(`fetched ${apiUsers.length} users from api`);
 
-    // build map of api users keyed by normalized mobile number (without "+91")
+    // 2) Build a map of API users keyed by normalized mobile number (without "+91")
     const apiUsersMap = new Map();
     for (const apiUser of apiUsers) {
-      const normalizedNumber = apiUser.mobileNumber.replace(/^\+91/, "");
-      apiUsersMap.set(normalizedNumber, apiUser);
+      const normalized = apiUser.mobileNumber.replace(/^\+91/, "");
+      apiUsersMap.set(normalized, apiUser);
     }
 
-    // fetch database users with downloaded false
+    // 3) Fetch database users with downloaded=false or null
     const dbUsers = await User.find(
       { downloaded: { $in: [null, false] } },
-      { number: 1, downloaded: 1, downloaded_date: 1 }
+      { number: 1, onboarded_date: 1, consent_date: 1 }
     );
     console.log(
       `fetched ${dbUsers.length} users from database with downloaded false`
     );
 
+    // Collect existing DB numbers for later
+    const dbNumbers = new Set(dbUsers.map((u) => u.number));
+
+    // 4) Prepare bulk update operations
     const updateOperations = [];
     let matchedCount = 0;
 
-    // iterate through database users and update only those found in api data
     for (const dbUser of dbUsers) {
       const apiUser = apiUsersMap.get(dbUser.number);
-      if (apiUser) {
-        matchedCount++;
-        let isDownloaded = false;
-        let downloadedDate = "";
-        const onBoardDate = dbUser.onboarded_date
-          ? dbUser.consent_date
-          : apiUser.createdAt;
-        const concentDate = dbUser.consent_date
-          ? dbUser.consent_date
-          : apiUser.createdAt;
-        if (apiUser.fcmToken && !apiUser.fcmToken.startsWith("dummy")) {
-          isDownloaded = true;
-          downloadedDate = apiUser.createdAt;
-        }
-        console.log(
-          `matched user ${dbUser.number}: api fcmToken = ${apiUser.fcmToken} | setting downloaded: ${isDownloaded}, downloaded_date: ${downloadedDate}`
-        );
-        updateOperations.push({
-          updateOne: {
-            filter: { number: dbUser.number },
-            update: {
-              $set: {
-                downloaded: isDownloaded,
-                downloaded_date: downloadedDate,
-                consent: "yes",
-                onboarded_date: onBoardDate,
-                consent_date: concentDate,
-              },
+      if (!apiUser) {
+        console.log(`no api match for database user ${dbUser.number}`);
+        continue;
+      }
+
+      matchedCount++;
+      const hasRealToken =
+        apiUser.fcmToken && !apiUser.fcmToken.startsWith("dummy");
+      const downloadedDate = hasRealToken ? apiUser.createdAt : "";
+      const onboardedDate = dbUser.onboarded_date || apiUser.createdAt;
+      const consentDate = dbUser.consent_date || apiUser.createdAt;
+
+      console.log(
+        `matched user ${dbUser.number}: api fcmToken = ${apiUser.fcmToken} | setting downloaded: ${hasRealToken}, downloaded_date: ${downloadedDate}`
+      );
+
+      updateOperations.push({
+        updateOne: {
+          filter: { number: dbUser.number },
+          update: {
+            $set: {
+              downloaded: hasRealToken,
+              downloaded_date: downloadedDate,
+              consent: "yes",
+              onboarded_date: onboardedDate,
+              consent_date: consentDate,
             },
           },
-        });
-      } else {
-        console.log(`no api match for database user ${dbUser.number}`);
-      }
+        },
+      });
     }
 
-    console.log(`total matched users: ${matchedCount}`);
+    console.log(`total matched users for update: ${matchedCount}`);
 
-    // perform bulk update if operations exist
+    // Execute bulk update
     if (updateOperations.length > 0) {
       const bulkWriteResult = await User.bulkWrite(updateOperations);
-      console.log(`bulk update result:`, bulkWriteResult);
+      console.log("bulk update result:", bulkWriteResult);
     } else {
       console.log("no updates to perform.");
     }
 
+    // 5) Create API-users not yet in the DB
+    const newUsers = [];
+    for (const [number, apiUser] of apiUsersMap.entries()) {
+      if (!dbNumbers.has(number)) {
+        const hasRealToken =
+          apiUser.fcmToken && !apiUser.fcmToken.startsWith("dummy");
+        newUsers.push({
+          number: apiUser.mobileNumber,
+          downloaded: hasRealToken,
+          downloaded_date: hasRealToken ? apiUser.createdAt : null,
+          consent: "yes",
+          onboarded_date: apiUser.createdAt,
+          consent_date: apiUser.createdAt,
+          pincode: apiUser.pincode,
+          name: apiUser.name,
+          taluk: apiUser.taluk,
+          district: apiUser.district,
+          village: apiUser.village,
+        });
+      }
+    }
+    console.log(`new users to insert: ${newUsers.length}`);
+
+    let insertedCount = 0;
+    if (newUsers.length > 0) {
+      const inserted = await User.insertMany(newUsers, { ordered: false });
+      insertedCount = inserted.length;
+      console.log(`inserted ${insertedCount} new users`);
+    } else {
+      console.log("no new users to insert.");
+    }
+
+    // 6) Send final response
     return res.status(200).json({
       message: "database updated successfully",
       updatedCount: updateOperations.length,
+      insertedCount,
     });
   } catch (error) {
     console.error("error updating database:", error);
-    return res.status(500).json({ message: "internal server error" });
+    return res
+      .status(500)
+      .json({ message: "internal server error", details: error.message });
   }
 };
 
