@@ -5,8 +5,7 @@ import PlivoReport from "../model/plivo-job-report.model.js";
 export const plivoAnswer = async (req, res) => {
   try {
     console.log("Plivo answer");
-    const reportId = req.query.reportId;
-    const cropName = req.query.cropName;
+    const { reportId, cropName } = req.query;
 
     const responseXml = create({ version: "1.0" })
       .ele("Response")
@@ -16,69 +15,132 @@ export const plivoAnswer = async (req, res) => {
         timeout: "10",
         numDigits: "1",
       })
-      .ele("Play")
-      .txt(
-        "https://codeskulptor-demos.commondatastorage.googleapis.com/pang/paza-moduless.mp3"
-      )
+      .ele("Speak")
+      .txt("Is your farm ready to harvest? Press 1 for Yes, or 2 for No.")
       .up()
-      .up()
+      .up() // close GetDigits
       .ele("Speak")
       .txt("We did not receive any input. Goodbye!")
       .end({ prettyPrint: true });
 
-    res.set("Content-Type", "text/xml");
-    res.send(responseXml);
+    res.type("text/xml").send(responseXml);
   } catch (error) {
     console.error("Plivo XML generation failed:", error);
     res.status(500).send("Internal server error");
   }
 };
 
-// Handles DTMF input from the user and logs the result
+// Handle initial digit: 1 = usual, 2 = ask days
 export const plivoAnswerHandle = async (req, res) => {
-  const reportId = req.query.reportId?.split("?")[0];
-  console.log(reportId, "report id");
-  const cropName = req.query.cropName;
-  console.log();
   try {
+    console.log("Plivo answer-handle", req.body);
+    const { reportId, cropName } = req.query;
     const { To, Digits } = req.body;
 
     if (!To || !Digits) {
-      console.warn("❌ Missing 'From' or 'Digits' in Plivo response");
+      console.warn("Missing 'To' or 'Digits' in Plivo payload");
       return res.status(400).send("Missing required input");
     }
 
-    const ready = Digits === "1";
+    if (Digits === "1") {
+      // Record "ready" = true
+      const campaign = await PlivoReport.findById(reportId);
+      if (campaign) {
+        campaign.campaign_report.push({
+          cropname: cropName,
+          number: To,
+          given_on: new Date(),
+          ready: true,
+        });
+        await campaign.save();
+        console.log(`Recorded usual update for ${To}`);
+      }
 
-    // 3) Find today’s campaign
-    const campaign = await PlivoReport.findById(reportId);
+      // Respond and hang up
+      const xml = create({ version: "1.0" })
+        .ele("Response")
+        .ele("Speak")
+        .txt("Thank you. Your usual update will be sent. Goodbye.")
+        .up()
+        .end({ prettyPrint: true });
 
-    console.log(campaign, "campaig");
-
-    if (campaign) {
-      campaign.campaign_report.push({
-        cropname: cropName,
-        number: To,
-        given_on: new Date(),
-        ready,
-      });
-
-      await campaign.save();
-      console.log(`✅ Recorded response for ${To}, ready: ${ready}`);
-    } else {
-      console.warn("⚠️ No campaign found for today to record DTMF");
+      return res.type("text/xml").send(xml);
     }
 
-    // 4) Respond to caller with XML
-    const responseXml = create({ version: "1.0" })
+    if (Digits === "2") {
+      // Ask for days input (up to 2 digits)
+      const xml = create({ version: "1.0" })
+        .ele("Response")
+        .ele("GetDigits", {
+          action: `https://campdash.onrender.com/plivo/days-handle?reportId=${reportId}&cropName=${cropName}`,
+          method: "POST",
+          timeout: "10",
+          numDigits: "2",
+        })
+        .ele("Speak")
+        .txt(
+          "How many days until your crop will be ready? Please enter two digits."
+        )
+        .up()
+        .up()
+        .ele("Speak")
+        .txt("No input received. Goodbye!")
+        .end({ prettyPrint: true });
+
+      return res.type("text/xml").send(xml);
+    }
+
+    // Invalid input
+    const invalidXml = create({ version: "1.0" })
       .ele("Response")
       .ele("Speak")
-      .txt("Thank you for your response. Goodbye!")
+      .txt("Invalid input. Goodbye.")
+      .up()
       .end({ prettyPrint: true });
 
-    res.type("text/xml").send(responseXml);
+    res.type("text/xml").send(invalidXml);
   } catch (error) {
-    console.error("💥 Error in plivoAnswerHandle:", error);
+    console.error("Error in plivoAnswerHandle:", error);
+    res.status(500).send("Internal Server Error");
+  }
+};
+
+export const plivoDaysHandle = async (req, res) => {
+  try {
+    console.log("Plivo days-handle", req.body);
+    const { reportId, cropName } = req.query;
+    const { To, Digits } = req.body;
+
+    if (!To || !Digits) {
+      console.warn("Missing 'To' or 'Digits' in Plivo payload");
+      return res.status(400).send("Missing required input");
+    }
+
+    const days = parseInt(Digits, 10);
+    // Directly push days entry
+    await PlivoReport.findByIdAndUpdate(reportId, {
+      $push: {
+        campaign_report: {
+          cropname: cropName,
+          number: To,
+          given_on: new Date(),
+          ready: false,
+          next_RTH_in_days: days,
+        },
+      },
+    });
+    console.log(`Recorded ${days} days for ${To}`);
+
+    const xml = create({ version: "1.0" })
+      .ele("Response")
+      .ele("Speak")
+      .txt(`You entered ${days} days. Thank you. Goodbye.`)
+      .up()
+      .end({ prettyPrint: true });
+
+    res.type("text/xml").send(xml);
+  } catch (error) {
+    console.error("Error in plivoDaysHandle:", error);
     res.status(500).send("Internal Server Error");
   }
 };
