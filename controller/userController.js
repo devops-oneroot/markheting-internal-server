@@ -270,124 +270,105 @@ export const concentAddAllowOverwrite = async (req, res) => {
 export const updateDatabase = async (req, res) => {
   try {
     // 1) Fetch users from the external API
-    const response = await fetch("https://markhet-internal.onrender.com/users");
-    const apiUsers = await response.json();
-    console.log(`fetched ${apiUsers.length} users from api`);
-
-    // 2) Build a map of API users keyed by normalized mobile number (without "+91")
-    const apiUsersMap = new Map();
-    for (const apiUser of apiUsers) {
-      const normalized = apiUser.mobileNumber.replace(/^\+91/, "");
-      apiUsersMap.set(normalized, apiUser);
+    const apiRes = await fetch(
+      "https://markhet-internal.onrender.com/users/farmer"
+    );
+    if (!apiRes.ok) {
+      throw new Error(`API fetch failed with status ${apiRes.status}`);
     }
+    const { data: apiUsers = [] } = await apiRes.json();
+    console.log(`Fetched ${apiUsers.length} users from API`);
 
-    // 3) Fetch database users with downloaded=false or null
+    // 2) Map API users by normalized mobile number
+    const apiMap = new Map(
+      apiUsers.map((u) => [u.mobileNumber.replace(/^\+91/, ""), u])
+    );
+
+    // 3) Load DB users needing download
     const dbUsers = await User.find(
       { downloaded: { $in: [null, false] } },
-      { number: 1, onboarded_date: 1, consent_date: 1 }
+      "number onboarded_date consent_date"
     );
-    console.log(
-      `fetched ${dbUsers.length} users from database with downloaded false`
-    );
+    console.log(`Fetched ${dbUsers.length} users from DB`);
 
-    // Collect existing DB numbers for later
     const dbNumbers = new Set(dbUsers.map((u) => u.number));
 
-    // 4) Prepare bulk update operations
-    const updateOperations = [];
-    let matchedCount = 0;
+    // 4) Build bulk‐update ops
+    const updates = dbUsers.reduce(
+      (ops, { number, onboarded_date, consent_date }) => {
+        const apiUser = apiMap.get(number);
+        if (!apiUser) return ops;
 
-    for (const dbUser of dbUsers) {
-      const apiUser = apiUsersMap.get(dbUser.number);
-      if (!apiUser) {
-        console.log(`no api match for database user ${dbUser.number}`);
-        continue;
-      }
-
-      matchedCount++;
-      const hasRealToken =
-        apiUser.fcmToken && !apiUser.fcmToken.startsWith("dummy");
-      const downloadedDate = hasRealToken ? apiUser.createdAt : "";
-      const onboardedDate = dbUser.onboarded_date || apiUser.createdAt;
-      const consentDate = dbUser.consent_date || apiUser.createdAt;
-
-      console.log(
-        `matched user ${dbUser.number}: api fcmToken = ${apiUser.fcmToken} | setting downloaded: ${hasRealToken}, downloaded_date: ${downloadedDate}`
-      );
-
-      updateOperations.push({
-        updateOne: {
-          filter: { number: dbUser.number },
-          update: {
-            $set: {
-              downloaded: hasRealToken,
-              downloaded_date: downloadedDate,
-              consent: "yes",
-              onboarded_date: onboardedDate,
-              consent_date: consentDate,
+        const hasToken =
+          apiUser.fcmToken && !apiUser.fcmToken.startsWith("dummy");
+        ops.push({
+          updateOne: {
+            filter: { number },
+            update: {
+              $set: {
+                downloaded: hasToken,
+                downloaded_date: hasToken ? apiUser.createdAt : "",
+                consent: "yes",
+                onboarded_date: onboarded_date ?? apiUser.createdAt,
+                consent_date: consent_date ?? apiUser.createdAt,
+              },
             },
           },
-        },
+        });
+        return ops;
+      },
+      []
+    );
+
+    if (updates.length > 0) {
+      const result = await User.bulkWrite(updates);
+      console.log("Bulk update result:", result);
+    } else {
+      console.log("No existing users to update");
+    }
+
+    // 5) Prepare new users for insertion
+    const newUsers = [];
+    for (const [number, u] of apiMap.entries()) {
+      if (!dbNumbers.has(number)) continue;
+      const hasToken = u.fcmToken && !u.fcmToken.startsWith("dummy");
+      newUsers.push({
+        number: u.mobileNumber,
+        downloaded: hasToken,
+        downloaded_date: hasToken ? u.createdAt : null,
+        consent: "yes",
+        onboarded_date: u.createdAt,
+        consent_date: u.createdAt,
+        pincode: u.pincode,
+        name: u.name,
+        taluk: u.taluk,
+        district: u.district,
+        village: u.village,
+        identity: "Farmer",
+        tag: "Markhet_api",
       });
     }
-
-    console.log(`total matched users for update: ${matchedCount}`);
-
-    // Execute bulk update
-    if (updateOperations.length > 0) {
-      const bulkWriteResult = await User.bulkWrite(updateOperations);
-      console.log("bulk update result:", bulkWriteResult);
-    } else {
-      console.log("no updates to perform.");
-    }
-
-    // 5) Create API-users not yet in the DB
-    const newUsers = [];
-    for (const [number, apiUser] of apiUsersMap.entries()) {
-      if (!dbNumbers.has(number)) {
-        const hasRealToken =
-          apiUser.fcmToken && !apiUser.fcmToken.startsWith("dummy");
-        newUsers.push({
-          number: apiUser.mobileNumber,
-          downloaded: hasRealToken,
-          downloaded_date: hasRealToken ? apiUser.createdAt : null,
-          consent: "yes",
-          onboarded_date: apiUser.createdAt,
-          consent_date: apiUser.createdAt,
-          pincode: apiUser.pincode,
-          name: apiUser.name,
-          taluk: apiUser.taluk,
-          district: apiUser.district,
-          village: apiUser.village,
-        });
-      }
-    }
-    console.log(`new users to insert: ${newUsers.length}`);
+    console.log(`New users to insert: ${newUsers.length}`);
 
     let insertedCount = 0;
     if (newUsers.length > 0) {
-      try {
-        const inserted = await User.insertMany(newUsers, { ordered: false });
-        insertedCount = inserted.length;
-        console.log(`inserted ${insertedCount} new users`);
-      } catch (error) {
-        console.log(error, "error in iserting new users");
-      }
-    } else {
-      console.log("no new users to insert.");
+      const insertedDocs = await User.insertMany(newUsers);
+      insertedCount = insertedDocs.length;
+      console.log(`Inserted ${insertedCount} new users`);
     }
 
     // 6) Send final response
     return res.status(200).json({
-      message: "database updated successfully",
-      updatedCount: updateOperations.length,
+      message: "Database updated successfully",
+      updatedCount: updates.length,
       insertedCount,
     });
   } catch (error) {
-    console.error("error updating database:", error);
-    return res
-      .status(500)
-      .json({ message: "internal server error", details: error.message });
+    console.error("Error updating database:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      details: error.message,
+    });
   }
 };
 
