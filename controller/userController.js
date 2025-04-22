@@ -330,10 +330,10 @@ export const updateDatabase = async (req, res) => {
     // 5) Prepare new users for insertion
     const newUsers = [];
     for (const [number, u] of apiMap.entries()) {
-      if (!dbNumbers.has(number)) continue;
+      if (dbNumbers.has(number)) continue;
       const hasToken = u.fcmToken && !u.fcmToken.startsWith("dummy");
       newUsers.push({
-        number: u.mobileNumber,
+        number,
         downloaded: hasToken,
         downloaded_date: hasToken ? u.createdAt : null,
         consent: "yes",
