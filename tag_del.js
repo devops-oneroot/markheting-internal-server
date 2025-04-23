@@ -36,7 +36,7 @@ async function setPincodeNullIfMissing() {
 }
 
 // 👇 You need to define the tag first
-const tag = "Padavapura Scraped"; // replace with your actual tag
+const tag = "Mysore piriyapatna ";
 
 connectMongo()
   .then(() => del(tag))
