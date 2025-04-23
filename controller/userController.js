@@ -331,7 +331,7 @@ export const updateDatabase = async (req, res) => {
     console.log(`Fetched ${apiUsers.length} users from API`);
 
     // 2) Normalize phone numbers & map by number
-    const normalizePhone = (phone) => phone.replace(/^(\+91|91|\+)/, "").trim();
+    const normalizePhone = (phone) => phone.replace(/^(\+91|\+)/, "").trim();
     const apiMap = new Map();
     for (const u of apiUsers) {
       apiMap.set(normalizePhone(u.mobileNumber), u);
@@ -363,6 +363,9 @@ export const updateDatabase = async (req, res) => {
     for await (const dbUser of updateCursor) {
       const norm = normalizePhone(dbUser.number);
       const apiUser = apiMap.get(norm);
+      console.log(dbUser, "dbuser");
+      console.log(apiUser, "apiuser");
+      console.log(norm, "norm");
       if (!apiUser) continue;
 
       const hasToken =
