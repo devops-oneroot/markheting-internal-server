@@ -23,7 +23,7 @@ export const plivoAnswer = async (req, res) => {
         .txt("We did not receive any input. Goodbye!")
         .end({ prettyPrint: true });
 
-      res.type("text/xml").send(responseXml);
+      return res.type("text/xml").send(responseXml);
     }
     const responseXml = create({ version: "1.0" })
       .ele("Response")
