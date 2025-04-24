@@ -16,7 +16,9 @@ export const plivoAnswer = async (req, res) => {
           numDigits: "1",
         })
         .ele("Speak")
-        .txt("Is your farm ready to harvest? Press 1 for Yes, or 2 for No.")
+        .txt(
+          `Is your ${cropName} farm ready to harvest? Press 1 for Yes, or 2 for No.`
+        )
         .up()
         .up() // close GetDigits
         .ele("Speak")
@@ -35,7 +37,7 @@ export const plivoAnswer = async (req, res) => {
       })
       .ele("Speak")
       .txt(
-        "Is your farm ready to harvest in 3 days? Press 1 for Yes, or 2 for No."
+        `Is your ${cropName} farm ready to harvest in 3 days? Press 1 for Yes, or 2 for No.`
       )
       .up()
       .up() // close GetDigits
@@ -63,7 +65,6 @@ export const plivoAnswerHandle = async (req, res) => {
     }
 
     if (Digits === "1") {
-      // Record "ready" = true
       const campaign = await PlivoReport.findById(reportId);
       if (campaign) {
         campaign.campaign_report.push({

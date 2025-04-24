@@ -16,9 +16,8 @@ const FARMERS_4days_API_URL =
   process.env.FARMERS_4days_API_URL ||
   "http://localhost:3002/crop/rth/4_days_rth";
 const MONGO_URI = process.env.MONGO_URI;
-const CRON_SCHEDULE = process.env.CRON_SCHEDULE || "37 17 * * *"; // 11:15 AM IST daily
+const CRON_SCHEDULE = process.env.CRON_SCHEDULE || "49 14 * * *"; // 11:15 AM IST daily
 const TIMEZONE = process.env.TIMEZONE || "Asia/Kolkata";
-const MAX_RECENT_REPORTS = process.env.MAX_RECENT_REPORTS || 2;
 
 // Plivo client setup
 let plivoClient = null;
@@ -83,15 +82,10 @@ async function fetchBuyers() {
       throw new Error("Invalid data format received from API");
     }
 
-    const buyers = data.data
-      .map(({ phoneNumber, cropname }) => ({
-        phoneNumber,
-        cropname: cropname?.toLowerCase?.().trim() || "",
-      }))
-      .filter((buyer) => buyer.phoneNumber && buyer.cropname);
+    const farmers = data.data;
 
-    console.info(`✅ Fetched ${buyers.length} buyers from API`);
-    return buyers;
+    console.info(`✅ Fetched ${farmers.length} buyers from API`);
+    return farmers;
   } catch (error) {
     console.error(`❌ Failed to fetch buyers: ${error.message}`);
     return [];
@@ -161,12 +155,12 @@ export async function runPlivoCampaign() {
 
       // Step 5: Place calls to each eligible farmer
       const callPromises = [];
-      for (const { phoneNumber, cropname } of Farmers) {
+      for (const { phoneNumber, cropName } of Farmers) {
         // Add delay between calls to avoid overwhelming the system
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
         try {
-          const callPromise = placeCall(phoneNumber, cropname, reportId);
+          const callPromise = placeCall(phoneNumber, cropName, reportId);
           callPromises.push(callPromise);
         } catch (error) {
           // Individual call errors are already logged in placeCall
