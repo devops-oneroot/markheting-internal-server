@@ -2,7 +2,7 @@ import cron from "node-cron";
 import plivo from "plivo";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
-import PlivoReport from "./../../model/plivo-job-report.model.js";
+import PlivoReport from "../../model/plivo-job-report.model.js";
 import fetch from "node-fetch";
 
 // Load environment variables
@@ -12,8 +12,9 @@ dotenv.config();
 const SOURCE_NUMBER = process.env.PLIVO_SOURCE_NUMBER;
 const ANSWER_URL =
   process.env.PLIVO_ANSWER_URL || "https://campdash.onrender.com/plivo/answer";
-const FARMERS_API_URL =
-  process.env.FARMERS_API_URL || "http://localhost:3002/crop/rth/number";
+const FARMERS_4days_API_URL =
+  process.env.FARMERS_4days_API_URL ||
+  "http://localhost:3002/crop/rth/4_days_rth";
 const MONGO_URI = process.env.MONGO_URI;
 const CRON_SCHEDULE = process.env.CRON_SCHEDULE || "37 17 * * *"; // 11:15 AM IST daily
 const TIMEZONE = process.env.TIMEZONE || "Asia/Kolkata";
@@ -22,9 +23,6 @@ const MAX_RECENT_REPORTS = process.env.MAX_RECENT_REPORTS || 2;
 // Plivo client setup
 let plivoClient = null;
 
-/**
- * Initialize Plivo client with credentials
- */
 function initializePlivoClient() {
   try {
     if (!process.env.PLIVO_AUTH_ID || !process.env.PLIVO_AUTH_TOKEN) {
@@ -73,7 +71,7 @@ async function connectMongo() {
  */
 async function fetchBuyers() {
   try {
-    const response = await fetch(FARMERS_API_URL);
+    const response = await fetch(FARMERS_4days_API_URL);
 
     if (!response.ok) {
       throw new Error(`API error! Status: ${response.status}`);
@@ -101,40 +99,6 @@ async function fetchBuyers() {
 }
 
 /**
- * Get set of recently contacted farmers
- * @returns {Promise<Set>} Set of unique farmer identifiers
- */
-async function getRecentlyContactedFarmers() {
-  try {
-    const recentReports = await PlivoReport.find()
-      .sort({ createdAt: -1 })
-      .limit(MAX_RECENT_REPORTS);
-
-    const reportedSet = new Set();
-
-    recentReports.forEach((report) => {
-      if (report.campaign_report?.length > 0) {
-        report.campaign_report.forEach((entry) => {
-          // Create a unique key combining phone number and crop name
-          const key = `${entry.number ? `+${entry.number}` : ""}-${
-            entry.cropname?.toLowerCase?.().trim() || ""
-          }`;
-          reportedSet.add(key);
-        });
-      }
-    });
-
-    console.info(`✅ Found ${reportedSet.size} recently contacted farmers`);
-    return reportedSet;
-  } catch (error) {
-    console.error(
-      `❌ Failed to get recently contacted farmers: ${error.message}`
-    );
-    return new Set();
-  }
-}
-
-/**
  * Place a call to a farmer
  * @param {string} phoneNumber - Farmer's phone number
  * @param {string} cropname - Crop name
@@ -149,7 +113,7 @@ async function placeCall(phoneNumber, cropname, reportId) {
 
     const callUrl = `${ANSWER_URL}?reportId=${reportId}&cropName=${encodeURIComponent(
       cropname
-    )}`;
+    )}&label=Pre_RTH`;
 
     const response = await plivoClient.calls.create(
       SOURCE_NUMBER,
@@ -178,28 +142,16 @@ export async function runPlivoCampaign() {
 
   try {
     // Step 1: Fetch buyers from API
-    const buyers = await fetchBuyers();
-    if (!buyers.length) {
+    const Farmers = await fetchBuyers();
+    if (!Farmers.length) {
       console.warn("No buyers found to contact");
       return;
     }
 
-    // Step 2: Get recently contacted farmers
-    const reportedSet = await getRecentlyContactedFarmers();
-
-    // Step 3: Filter out buyers who have been recently contacted
-    const eligibleFarmers = buyers.filter(({ phoneNumber, cropname }) => {
-      const key = `${phoneNumber}-${cropname}`;
-      return !reportedSet.has(key);
-    });
-
-    console.info(
-      `✅ Found ${eligibleFarmers.length} eligible farmers to contact`
-    );
-
     // Step 4: Create new campaign if we have eligible farmers
-    if (eligibleFarmers.length > 0) {
+    if (Farmers.length > 0) {
       const campaign = await PlivoReport.create({
+        label: "Pre_RTH",
         campaign_date: new Date(),
         campaign_report: [],
       });
@@ -209,7 +161,7 @@ export async function runPlivoCampaign() {
 
       // Step 5: Place calls to each eligible farmer
       const callPromises = [];
-      for (const { phoneNumber, cropname } of eligibleFarmers) {
+      for (const { phoneNumber, cropname } of Farmers) {
         // Add delay between calls to avoid overwhelming the system
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -284,10 +236,6 @@ async function initialize() {
   );
 
   console.info(`⏰ Cron job scheduled: ${CRON_SCHEDULE} (${TIMEZONE})`);
-
-  // Run the campaign immediately on startup if needed
-  // Uncomment the following line if you want to run the campaign on startup
-  // await runPlivoCampaign();
 }
 
 // Start the application

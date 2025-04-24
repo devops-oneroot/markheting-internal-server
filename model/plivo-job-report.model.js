@@ -30,6 +30,11 @@ const reportEntrySchema = new mongoose.Schema({
 
 const plivoCampaignSchema = new mongoose.Schema(
   {
+    label: {
+      type: "Daily_RTH" | "Pre_RTH",
+      required: true,
+      default: "Daily_RTH",
+    },
     campaign_date: {
       type: Date,
       default: Date.now,
