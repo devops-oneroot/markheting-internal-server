@@ -15,7 +15,7 @@ const ANSWER_URL =
 const FARMERS_API_URL =
   process.env.FARMERS_API_URL || "http://localhost:3002/crop/rth/number";
 const MONGO_URI = process.env.MONGO_URI;
-const CRON_SCHEDULE = process.env.CRON_SCHEDULE || "16 13 * * *"; // 11:15 AM IST daily
+const CRON_SCHEDULE = process.env.CRON_SCHEDULE || "39 15 * * *"; // 11:15 AM IST daily
 const TIMEZONE = process.env.TIMEZONE || "Asia/Kolkata";
 const MAX_RECENT_REPORTS = process.env.MAX_RECENT_REPORTS || 2;
 

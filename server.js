@@ -5,6 +5,7 @@ import connectDB from "./database/mongo.js";
 import User from "./model/user.model.js";
 import userRoute from "./routes/userRoute.js";
 import plivoRoute from "./routes/plivo.route.js";
+import plivoReportRoute from "./routes/plivoReport.route.js";
 import { createUserAndSendFlow } from "./whatsapp.js";
 import { Parser } from "json2csv";
 
@@ -27,6 +28,7 @@ async function startServer() {
     // Mount modular routes
     app.use(userRoute);
     app.use(plivoRoute);
+    app.use(plivoReportRoute);
 
     // Basic health-check
     app.get("/", (req, res) => {
