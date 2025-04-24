@@ -31,7 +31,8 @@ const reportEntrySchema = new mongoose.Schema({
 const plivoCampaignSchema = new mongoose.Schema(
   {
     label: {
-      type: "Daily_RTH" | "Pre_RTH",
+      type: String,
+      enum: ["Daily_RTH", "Pre_RTH"],
       required: true,
       default: "Daily_RTH",
     },
