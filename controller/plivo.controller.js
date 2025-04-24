@@ -5,8 +5,26 @@ import PlivoReport from "../model/plivo-job-report.model.js";
 export const plivoAnswer = async (req, res) => {
   try {
     console.log("Plivo answer");
-    const { reportId, cropName } = req.query;
+    const { reportId, cropName, label } = req.query;
+    if (label == "Daily_RTH") {
+      const responseXml = create({ version: "1.0" })
+        .ele("Response")
+        .ele("GetDigits", {
+          action: `https://campdash.onrender.com/plivo/answer-handle?reportId=${reportId}&cropName=${cropName}`,
+          method: "POST",
+          timeout: "10",
+          numDigits: "1",
+        })
+        .ele("Speak")
+        .txt("Is your farm ready to harvest? Press 1 for Yes, or 2 for No.")
+        .up()
+        .up() // close GetDigits
+        .ele("Speak")
+        .txt("We did not receive any input. Goodbye!")
+        .end({ prettyPrint: true });
 
+      res.type("text/xml").send(responseXml);
+    }
     const responseXml = create({ version: "1.0" })
       .ele("Response")
       .ele("GetDigits", {
@@ -16,7 +34,9 @@ export const plivoAnswer = async (req, res) => {
         numDigits: "1",
       })
       .ele("Speak")
-      .txt("Is your farm ready to harvest? Press 1 for Yes, or 2 for No.")
+      .txt(
+        "Is your farm ready to harvest in 3 days? Press 1 for Yes, or 2 for No."
+      )
       .up()
       .up() // close GetDigits
       .ele("Speak")
