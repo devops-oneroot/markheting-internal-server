@@ -178,6 +178,7 @@ function selectCsvFields(columns) {
     "tag",
     "consent",
     "consent_date",
+    "onboarded_date",
     "createdAt",
     "updatedAt",
     "downloaded",
