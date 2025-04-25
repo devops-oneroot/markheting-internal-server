@@ -5,7 +5,9 @@ import connectDB from "./database/mongo.js";
 import User from "./model/user.model.js";
 import userRoute from "./routes/userRoute.js";
 import plivoRoute from "./routes/plivo.route.js";
+import plivoReportRoute from "./routes/plivoReport.route.js";
 import { createUserAndSendFlow } from "./whatsapp.js";
+import { format } from "fast-csv";
 import { Parser } from "json2csv";
 
 // Load environment variables
@@ -27,6 +29,7 @@ async function startServer() {
     // Mount modular routes
     app.use(userRoute);
     app.use(plivoRoute);
+    app.use(plivoReportRoute);
 
     // Basic health-check
     app.get("/", (req, res) => {
@@ -79,16 +82,51 @@ async function startServer() {
       try {
         const { tag, consent, date, downloaded, columns } = req.query;
         const query = buildUserQuery({ tag, consent, downloaded, date });
-        const users = await User.find(query).lean();
-        const fields = selectCsvFields(columns);
-        const csv = new Parser({ fields }).parse(users);
+        const fields = selectCsvFields(columns); // e.g. ['_id','email','createdAt',…]
+        const filename = `users_${tag || "all"}_${Date.now()}.csv`;
 
-        res.header("Content-Type", "text/csv");
-        res.attachment(`users_${tag || "all"}_${Date.now()}.csv`);
-        res.send(csv);
+        // 1) Set headers up front
+        res.setHeader("Content-Type", "text/csv");
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="${filename}"`
+        );
+
+        // 2) Create a Mongoose cursor (no .exec() in memory)
+        const cursor = User.find(query).lean().cursor();
+
+        // 3) Create a CSV formatter stream
+        const csvStream = format({ headers: fields, writeHeaders: true });
+
+        // 4) Pipe CSV directly to the response
+        csvStream.pipe(res).on("error", (err) => {
+          console.error("CSV stream error:", err);
+          if (!res.headersSent) res.status(500).end();
+        });
+
+        // 5) As each doc comes in, write its row
+        cursor.on("data", (doc) => {
+          // pick only requested fields
+          const row = fields.reduce((acc, key) => {
+            acc[key] = doc[key];
+            return acc;
+          }, {});
+          csvStream.write(row);
+        });
+
+        cursor.on("end", () => {
+          csvStream.end();
+        });
+
+        cursor.on("error", (err) => {
+          console.error("Mongo cursor error:", err);
+          csvStream.end();
+        });
       } catch (err) {
-        console.error("Error generating CSV:", err.message);
-        res.status(500).json({ error: "Internal Server Error" });
+        console.error("Unexpected error generating CSV:", err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: "Internal Server Error" });
+        }
       }
     });
 
@@ -140,6 +178,7 @@ function selectCsvFields(columns) {
     "tag",
     "consent",
     "consent_date",
+    "onboarded_date",
     "createdAt",
     "updatedAt",
     "downloaded",

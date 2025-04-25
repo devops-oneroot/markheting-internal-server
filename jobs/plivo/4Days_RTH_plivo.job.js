@@ -16,7 +16,7 @@ const FARMERS_4days_API_URL =
   process.env.FARMERS_4days_API_URL ||
   "http://localhost:3002/crop/rth/4_days_rth";
 const MONGO_URI = process.env.MONGO_URI;
-const CRON_SCHEDULE = process.env.CRON_SCHEDULE || "49 14 * * *"; // 11:15 AM IST daily
+const CRON_SCHEDULE = process.env.CRON_SCHEDULE || "54 15 * * *"; // 11:15 AM IST daily
 const TIMEZONE = process.env.TIMEZONE || "Asia/Kolkata";
 
 // Plivo client setup
