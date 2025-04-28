@@ -8,30 +8,23 @@ import plivoRoute from "./routes/plivo.route.js";
 import plivoReportRoute from "./routes/plivoReport.route.js";
 import { createUserAndSendFlow } from "./whatsapp.js";
 import { format } from "fast-csv";
-import { Parser } from "json2csv";
 
-// Load environment variables
 dotenv.config();
-
 const PORT = process.env.PORT || 3005;
 
 async function startServer() {
   try {
-    // Connect to MongoDB
     await connectDB();
     const app = express();
 
-    // Global middleware
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
     app.use(cors());
 
-    // Mount modular routes
     app.use(userRoute);
     app.use(plivoRoute);
     app.use(plivoReportRoute);
 
-    // Basic health-check
     app.get("/", (req, res) => {
       res.send("Welcome to market dashboard");
     });
@@ -50,16 +43,10 @@ async function startServer() {
     // Fetch users with filters
     app.get("/users", async (req, res) => {
       try {
-        const { page = 1, tag, consent, downloaded, date, search } = req.query;
+        const { page = 1, tag, consent, downloaded, date, search, category } = req.query;
         const limit = 50;
         const skip = (page - 1) * limit;
-        const query = buildUserQuery({
-          tag,
-          consent,
-          downloaded,
-          date,
-          search,
-        });
+        const query = buildUserQuery({ tag, consent, downloaded, date, search, category });
 
         const [users, totalUsers] = await Promise.all([
           User.find(query).skip(skip).limit(limit),
@@ -80,33 +67,24 @@ async function startServer() {
     // Download CSV of filtered users
     app.get("/download-users", async (req, res) => {
       try {
-        const { tag, consent, date, downloaded, columns } = req.query;
-        const query = buildUserQuery({ tag, consent, downloaded, date });
-        const fields = selectCsvFields(columns); // e.g. ['_id','email','createdAt',…]
-        const filename = `users_${tag || "all"}_${Date.now()}.csv`;
+        const { tag, consent, date, downloaded, category, columns } = req.query;
+        const query = buildUserQuery({ tag, consent, downloaded, date, category });
 
-        // 1) Set headers up front
+        const fields = selectCsvFields(columns); // fields to include in CSV
+        const filename = `users_${tag || "all"}_${category || "all"}_${Date.now()}.csv`;
+
         res.setHeader("Content-Type", "text/csv");
-        res.setHeader(
-          "Content-Disposition",
-          `attachment; filename="${filename}"`
-        );
+        res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
 
-        // 2) Create a Mongoose cursor (no .exec() in memory)
         const cursor = User.find(query).lean().cursor();
-
-        // 3) Create a CSV formatter stream
         const csvStream = format({ headers: fields, writeHeaders: true });
 
-        // 4) Pipe CSV directly to the response
         csvStream.pipe(res).on("error", (err) => {
           console.error("CSV stream error:", err);
           if (!res.headersSent) res.status(500).end();
         });
 
-        // 5) As each doc comes in, write its row
         cursor.on("data", (doc) => {
-          // pick only requested fields
           const row = fields.reduce((acc, key) => {
             acc[key] = doc[key];
             return acc;
@@ -122,6 +100,7 @@ async function startServer() {
           console.error("Mongo cursor error:", err);
           csvStream.end();
         });
+
       } catch (err) {
         console.error("Unexpected error generating CSV:", err);
         if (!res.headersSent) {
@@ -130,10 +109,8 @@ async function startServer() {
       }
     });
 
-    // Webhook endpoint (handles both broadcast and call link)
     app.get("/webhook", handleWebhook);
 
-    // Start listening
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
@@ -144,21 +121,37 @@ async function startServer() {
 }
 
 // Utilities and handlers
-function buildUserQuery({ tag, consent, downloaded, date, search }) {
+
+function buildUserQuery({ tag, consent, downloaded, date, search, category }) {
   const query = {};
+
   if (tag) query.tag = tag;
+
   if (consent)
     query.consent = consent === "yes" ? "yes" : { $in: ["", null, "no"] };
+
   if (downloaded === "yes") query.downloaded = true;
   else if (downloaded === "no") query.downloaded = false;
   else if (downloaded === "null") query.downloaded = null;
+
   if (date) query.consent_date = { $regex: `^${date}` };
+
   if (search) {
     query.$or = [
       { name: { $regex: search, $options: "i" } },
       { number: { $regex: search, $options: "i" } },
     ];
   }
+
+  if (category && category !== "all") {
+    const categoryMap = {
+      "Margin+Farmer": "Margin Farmer",
+      "Small+Farmer": "Small Farmer",
+      "Big+Farmer": "Big Farmer",
+    };
+    query.farmer_category = categoryMap[category] || category;
+  }
+
   return query;
 }
 
@@ -195,7 +188,6 @@ async function handleWebhook(req, res) {
     let { CallFrom: callFrom, type } = req.query;
     if (!callFrom) return res.status(400).send("Missing CallFrom");
 
-    // Normalize phone number
     if (callFrom.startsWith("0")) callFrom = callFrom.slice(1);
     const phone = `91${callFrom}`;
     const flowType = type === "call link" ? "call link" : "broadcast";
@@ -217,5 +209,4 @@ async function handleWebhook(req, res) {
   }
 }
 
-// Start the application
 startServer();
