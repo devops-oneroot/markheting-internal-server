@@ -5,7 +5,6 @@ import mongoose from "mongoose";
 import PlivoReport from "../../model/plivo-job-report.model.js";
 import fetch from "node-fetch";
 
-// Load environment variables
 dotenv.config();
 
 // Constants
