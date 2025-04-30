@@ -43,10 +43,25 @@ async function startServer() {
     // Fetch users with filters
     app.get("/users", async (req, res) => {
       try {
-        const { page = 1, tag, consent, downloaded, date, search, category } = req.query;
+        const {
+          page = 1,
+          tag,
+          consent,
+          downloaded,
+          date,
+          search,
+          category,
+        } = req.query;
         const limit = 50;
         const skip = (page - 1) * limit;
-        const query = buildUserQuery({ tag, consent, downloaded, date, search, category });
+        const query = buildUserQuery({
+          tag,
+          consent,
+          downloaded,
+          date,
+          search,
+          category,
+        });
 
         const [users, totalUsers] = await Promise.all([
           User.find(query).skip(skip).limit(limit),
@@ -68,17 +83,43 @@ async function startServer() {
     app.get("/download-users", async (req, res) => {
       try {
         const { tag, consent, date, downloaded, category, columns } = req.query;
-        const query = buildUserQuery({ tag, consent, downloaded, date, category });
 
-        const fields = selectCsvFields(columns); // fields to include in CSV
-        const filename = `users_${tag || "all"}_${category || "all"}_${Date.now()}.csv`;
+        // parse & sanitize pagination params (make from 1-based inclusive)
+        let from = parseInt(req.query.from, 10);
+        let to = parseInt(req.query.to, 10);
+        if (isNaN(from) || from < 1) from = 1;
+        if (isNaN(to) || to < from) to = from;
+
+        const startIdx = from - 1; // zero-based skip
+        const count = to - (from - 1); // inclusive limit: to - startIdx
+
+        const query = buildUserQuery({
+          tag,
+          consent,
+          downloaded,
+          date,
+          category,
+        });
+        const fields = selectCsvFields(columns);
+        const filename = `users_${tag || "all"}_${
+          category || "all"
+        }_${Date.now()}.csv`;
 
         res.setHeader("Content-Type", "text/csv");
-        res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="${filename}"`
+        );
 
-        const cursor = User.find(query).lean().cursor();
+        // build a cursor that skips startIdx and takes exactly `count` docs
+        const cursor = User.find(query)
+          .sort({ _id: 1 })
+          .skip(startIdx)
+          .limit(count)
+          .lean()
+          .cursor();
+
         const csvStream = format({ headers: fields, writeHeaders: true });
-
         csvStream.pipe(res).on("error", (err) => {
           console.error("CSV stream error:", err);
           if (!res.headersSent) res.status(500).end();
@@ -92,15 +133,11 @@ async function startServer() {
           csvStream.write(row);
         });
 
-        cursor.on("end", () => {
-          csvStream.end();
-        });
-
+        cursor.on("end", () => csvStream.end());
         cursor.on("error", (err) => {
           console.error("Mongo cursor error:", err);
           csvStream.end();
         });
-
       } catch (err) {
         console.error("Unexpected error generating CSV:", err);
         if (!res.headersSent) {
