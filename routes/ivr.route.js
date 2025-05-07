@@ -1,8 +1,9 @@
 import express from "express";
-import { ivrWebhook } from "../controller/ivr.controller.js";
+import { ivrRecords, ivrWebhook } from "../controller/ivr.controller.js";
 
 const router = express.Router();
 
 router.get("/record", ivrWebhook);
+router.get("", ivrRecords)
 
 export default router;

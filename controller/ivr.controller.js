@@ -52,3 +52,19 @@ export const ivrWebhook = async (req, res) => {
     return res.status(500).send("Internal Server Error");
   }
 };
+
+ export const ivrRecords = async (req, res) => {
+  try {
+    const data  =  await IVR.find({})
+    if (!data) {
+      return res.status(404).send("No data found");
+    }
+    return res.status(200).json(data);
+  
+    
+  } catch (error) {
+    console.error("Error in ivrUser:", error);
+    return res.status(500).send("Internal Server Error");
+    
+  }
+}
