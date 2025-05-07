@@ -17,7 +17,7 @@ route.put("/consent", upload.single("csv"), concentAdd);
 route.post("/user-import", upload.single("csv"), importCsv);
 route.get("/update-database", updateDatabase);
 route.get("/location/:pincode", location);
-route.get(
+route.post(
   "/non-onboard",
   upload.single("csv"),
   findNonOnboardedOrDownloadableUsers
