@@ -1,6 +1,7 @@
 import User from "../model/user.model.js"; // Import your User model
 import fs from "fs";
 import csvParser from "csv-parser";
+import * as csvStringify from "csv-stringify";
 
 export const concentAdd = async (req, res) => {
   try {
@@ -503,5 +504,124 @@ export const location = async (req, res) => {
   } catch (err) {
     console.error("🔥 Error fetching location data:", err);
     res.status(500).json({ error: "Something went wrong" });
+  }
+};
+
+export const findNonOnboardedOrDownloadableUsers = async (req, res) => {
+  try {
+    if (!req.file)
+      return res.status(400).json({ error: "No CSV file uploaded" });
+
+    const filePath = req.file.path;
+    // Default to "Phone" column based on the CSV format
+    const targetColumn =
+      typeof req.body.columnName === "string" ? req.body.columnName : "Phone";
+
+    const rows = [];
+    let headersDetected = false;
+
+    fs.createReadStream(filePath)
+      .pipe(csvParser())
+      .on("data", (row) => {
+        if (!headersDetected) {
+          // Ensure targetColumn exists in the headers
+          if (!Object.keys(row).includes(targetColumn)) {
+            return res
+              .status(400)
+              .json({ error: `Column '${targetColumn}' not found in CSV` });
+          }
+          headersDetected = true;
+        }
+
+        if (row[targetColumn] !== undefined) {
+          // Clean the phone number by removing leading zeros
+          let rawPhone = row[targetColumn].toString().trim();
+          while (rawPhone.startsWith("0")) rawPhone = rawPhone.substring(1);
+          rows.push({ original: row, phone: rawPhone });
+        }
+      })
+      .on("end", async () => {
+        // Clean up the uploaded file
+        fs.unlink(filePath, () => {});
+
+        if (rows.length === 0) {
+          return res
+            .status(400)
+            .json({ error: `Column '${targetColumn}' not found or CSV empty` });
+        }
+
+        // Deduplicate by phone
+        const uniqueByPhone = new Map();
+        rows.forEach(({ original, phone }) => {
+          if (!uniqueByPhone.has(phone)) uniqueByPhone.set(phone, original);
+        });
+
+        const uniquePhones = Array.from(uniqueByPhone.keys());
+
+        // Query DB for users with these phone numbers
+        // Now also check for downloaded:null
+        const existingUsers = await User.find({
+          number: { $in: uniquePhones },
+          $or: [{ downloaded: null }, { downloaded: { $exists: false } }],
+        })
+          .lean()
+          .select("number");
+
+        const existingSet = new Set(existingUsers.map((u) => u.number));
+
+        // Find users that exist in DB and have downloaded:null
+        const downloadableUsers = uniquePhones.filter((p) =>
+          existingSet.has(p)
+        );
+        const outputRows = downloadableUsers.map((p) => uniqueByPhone.get(p));
+
+        // Prepare CSV response
+        res.setHeader("Content-Type", "text/csv");
+        res.setHeader(
+          "Content-Disposition",
+          "attachment; filename=downloadable_users.csv"
+        );
+
+        // If there are no users with downloaded:null, return empty CSV with headers
+        if (outputRows.length === 0) {
+          const headers = Object.keys(rows[0].original);
+          csvStringify.stringify([headers], (err, output) => {
+            if (err) {
+              console.error("CSV generation error:", err);
+              return res
+                .status(500)
+                .json({ error: "CSV generation error", details: err.message });
+            }
+            res.send(output);
+          });
+          return;
+        }
+
+        // Create CSV with data
+        const headerFields = Object.keys(outputRows[0]);
+        const data = outputRows.map((r) => headerFields.map((f) => r[f]));
+
+        csvStringify.stringify([headerFields, ...data], (err, output) => {
+          if (err) {
+            console.error("CSV generation error:", err);
+            return res
+              .status(500)
+              .json({ error: "CSV generation error", details: err.message });
+          }
+          res.send(output);
+        });
+      })
+      .on("error", (err) => {
+        fs.unlink(filePath, () => {});
+        console.error("CSV parse error:", err);
+        return res
+          .status(500)
+          .json({ error: "CSV parse error", details: err.message });
+      });
+  } catch (err) {
+    console.error("Server error:", err);
+    return res
+      .status(500)
+      .json({ error: "Server error", details: err.message });
   }
 };
