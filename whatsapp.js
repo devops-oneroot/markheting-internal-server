@@ -71,3 +71,37 @@ export async function createUserAndSendFlow({
     throw error;
   }
 }
+
+export async function sendUpdateFlow({ phone }) {
+  let sanitizedPhone = phone.replace(/"/g, "").trim();
+  if (sanitizedPhone.startsWith("0")) {
+    sanitizedPhone = sanitizedPhone.substring(1);
+  }
+
+  const endpoint = process.env.CHATRACE_SEND_API_URL;
+
+  console.log("API Key:", process.env.CHATRACE_API_KEY);
+  console.log("Endpoint:", endpoint);
+  console.log("Sanitized Phone:", sanitizedPhone);
+  try {
+    const response = await limiter.schedule(() =>
+      fetch(`${endpoint}/${phone}/send/1746687279543`, {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "Content-Type": "application/json",
+          "X-ACCESS-TOKEN": process.env.CHATRACE_API_KEY,
+        },
+        agent,
+      })
+    );
+
+    const data = await response.json();
+    if (!response.ok) {
+      console.error(`Error ${response.status}:`, data);
+      return data;
+    }
+    console.log("User created and flow sent successfully:", data);
+    return data;
+  } catch (error) {}
+}

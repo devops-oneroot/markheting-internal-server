@@ -7,7 +7,7 @@ import userRoute from "./routes/userRoute.js";
 import plivoRoute from "./routes/plivo.route.js";
 import plivoReportRoute from "./routes/plivoReport.route.js";
 import ivrRoute from "./routes/ivr.route.js";
-import { createUserAndSendFlow } from "./whatsapp.js";
+import { createUserAndSendFlow, sendUpdateFlow } from "./whatsapp.js";
 import { format } from "fast-csv";
 
 dotenv.config();
@@ -150,6 +150,8 @@ async function startServer() {
 
     app.get("/webhook", handleWebhook);
 
+    app.get("/update-webhook", handleUpdateWebhook);
+
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
@@ -245,6 +247,34 @@ async function handleWebhook(req, res) {
   } catch (err) {
     console.error("Webhook handler error:", err);
     res.status(500).send("Internal Server Error");
+  }
+}
+
+async function handleUpdateWebhook(req, res) {
+  try {
+    let { CallFrom: callFrom } = req.query;
+    if (!callFrom) return res.status(400).send("Missing CallFrom");
+
+    console.log("Received CallFrom:", callFrom);
+
+    callFrom = callFrom.replace(/^0+/, "").trim().replace(/^"|"$/g, "");
+    const phone = `91${callFrom}`;
+
+    console.log("Sanitized phone number:", phone);
+
+    setImmediate(() => {
+      sendUpdateFlow({ phone })
+        .then((data) =>
+          console.log(`[${new Date().toISOString()}] Flow succeeded:`, data)
+        )
+        .catch((err) =>
+          console.error(`[${new Date().toISOString()}] Flow error:`, err)
+        );
+    });
+    res.status(202).json({ message: "Webhook received, processing started" });
+  } catch (error) {
+    console.error("Error in update webhook:", error);
+    res.status(500).json({ error: "Internal Server Error" });``
   }
 }
 
