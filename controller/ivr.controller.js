@@ -28,6 +28,7 @@ export const ivrWebhook = async (req, res) => {
         identity: "Farmer",
         consent: "yes",
         consent_date: now,
+        tag:"Main IVR"
       });
       tag = "new user";
     } else {
