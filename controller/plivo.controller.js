@@ -15,18 +15,21 @@ export const plivoAnswer = async (req, res) => {
           timeout: "10",
           numDigits: "1",
         })
-        .ele("Speak")
+        // Play greeting audio from jsDelivr GitHub CDN
+        .ele("Play")
         .txt(
-          `Is your ${cropName} farm ready to harvest? Press 1 for Yes, or 2 for No.`
+          "https://cdn.jsdelivr.net/gh/shahnoor-oneRoot/plivo-audios@main/audio/greeting.wav"
         )
         .up()
         .up() // close GetDigits
         .ele("Speak")
         .txt("We did not receive any input. Goodbye!")
+        .up()
         .end({ prettyPrint: true });
 
       return res.type("text/xml").send(responseXml);
     }
+
     const responseXml = create({ version: "1.0" })
       .ele("Response")
       .ele("GetDigits", {
@@ -37,7 +40,7 @@ export const plivoAnswer = async (req, res) => {
       })
       .ele("Speak")
       .txt(
-        `Is your ${cropName} farm ready to harvest in 3 days? Press 1 for Yes, or 2 for No.`
+        "https://cdn.jsdelivr.net/gh/shahnoor-oneRoot/plivo-audios@main/audio/thanks.wav"
       )
       .up()
       .up() // close GetDigits

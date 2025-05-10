@@ -11,7 +11,7 @@ import { createUserAndSendFlow, sendUpdateFlow } from "./whatsapp.js";
 import { format } from "fast-csv";
 
 dotenv.config();
-const PORT = process.env.PORT || 3005;
+const PORT = process.env.PORT || 3003;
 
 async function startServer() {
   try {
@@ -274,7 +274,8 @@ async function handleUpdateWebhook(req, res) {
     res.status(202).json({ message: "Webhook received, processing started" });
   } catch (error) {
     console.error("Error in update webhook:", error);
-    res.status(500).json({ error: "Internal Server Error" });``
+    res.status(500).json({ error: "Internal Server Error" });
+    ``;
   }
 }
 

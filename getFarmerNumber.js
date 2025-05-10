@@ -48,7 +48,7 @@ export async function generateFarmerMobileCsv(apiUrl, outputPath) {
 }
 
 generateFarmerMobileCsv(
-  "https://markhet-internal.onrender.com/users/farmer",
+  "https://markhet-internal.onrender.com/users/buyer",
   "generated-csv"
 )
   .then(() => console.log("CSV generation successful."))

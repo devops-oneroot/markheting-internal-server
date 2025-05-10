@@ -99,15 +99,3 @@ export async function createUserWithFieldsAndFlow({
   console.log("Success:", data);
   return data;
 }
-
-// example usage:
-(async () => {
-  await createUserWithFieldsAndFlow({
-    phone: "+918501978867",
-    name: "GCC",
-    district: "Bijapur",
-    taluk: "Indi",
-    village: "Indi",
-    rthInDays: 100,
-  });
-})();
