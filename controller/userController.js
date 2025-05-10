@@ -2,6 +2,13 @@ import User from "../model/user.model.js"; // Import your User model
 import fs from "fs";
 import csvParser from "csv-parser";
 import * as csvStringify from "csv-stringify";
+import { createUserWithFieldsAndFlow } from "../updatewhatsapp.js";
+import Bottleneck from "bottleneck";
+
+const limiter = new Bottleneck({
+  maxConcurrent: 1,
+  minTime: 500,
+});
 
 export const concentAdd = async (req, res) => {
   try {
@@ -623,5 +630,82 @@ export const findNonOnboardedOrDownloadableUsers = async (req, res) => {
     return res
       .status(500)
       .json({ error: "Server error", details: err.message });
+  }
+};
+
+export const sendMessageToNewUsers = async (req, res) => {
+  try {
+    // 1. Ensure a file was uploaded
+    if (!req.file) {
+      return res.status(400).json({ error: "No CSV file uploaded" });
+    }
+    const filePath = req.file.path;
+
+    const rows = [];
+    fs.createReadStream(filePath)
+      .pipe(csvParser())
+      .on("data", (row) => {
+        rows.push(row);
+      })
+      .on("end", async () => {
+        const outcomes = await Promise.all(
+          rows.map((row, idx) =>
+            limiter.schedule(async () => {
+              try {
+                const { name, number, district, taluk, village } = row;
+
+                // basic validation
+                if (!name || !number) {
+                  throw new Error("Missing required field: name or number");
+                }
+
+                // compute days to harvest if date provided
+                let rthInDays = 7;
+
+                const result = await createUserWithFieldsAndFlow({
+                  phone: number,
+                  name,
+                  district,
+                  taluk,
+                  village,
+                  rthInDays,
+                });
+
+                return { row: idx + 1, status: "success", result };
+              } catch (err) {
+                return {
+                  row: idx + 1,
+                  status: "error",
+                  error: err.message || err.toString(),
+                };
+              }
+            })
+          )
+        );
+
+        // clean up the uploaded file if you like:
+        fs.unlink(filePath, (unlinkErr) => {
+          if (unlinkErr) console.warn("Failed to delete temp CSV:", unlinkErr);
+        });
+
+        // 4. Summarize
+        const successCount = outcomes.filter(
+          (o) => o.status === "success"
+        ).length;
+        const failures = outcomes.filter((o) => o.status === "error");
+
+        return res.json({
+          total: rows.length,
+          successCount,
+          failures,
+        });
+      })
+      .on("error", (err) => {
+        console.error("CSV parse error:", err);
+        return res.status(500).json({ error: "Failed to parse CSV" });
+      });
+  } catch (err) {
+    console.error("sendMessageToNewUsers error:", err);
+    return res.status(500).json({ error: err.message || "Server error" });
   }
 };

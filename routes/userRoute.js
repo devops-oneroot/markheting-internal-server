@@ -7,6 +7,7 @@ import {
   concentAdd,
   location,
   findNonOnboardedOrDownloadableUsers,
+  sendMessageToNewUsers,
 } from "../controller/userController.js";
 
 const route = Router();
@@ -21,6 +22,12 @@ route.post(
   "/non-onboard",
   upload.single("csv"),
   findNonOnboardedOrDownloadableUsers
+);
+
+route.post(
+  "/new-users-update-wsmessage",
+  upload.single("csv"),
+  sendMessageToNewUsers
 );
 
 export default route;
