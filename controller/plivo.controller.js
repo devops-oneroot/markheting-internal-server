@@ -18,7 +18,7 @@ export const plivoAnswer = async (req, res) => {
         // Play greeting audio from jsDelivr GitHub CDN
         .ele("Play")
         .txt(
-          "https://cdn.jsdelivr.net/gh/shahnoor-oneRoot/plivo-audios@main/audio/greeting.wav"
+          "https://raw.githubusercontent.com/shahnoor-oneRoot/plivo-audios/main/audio/greeting.wav"
         )
         .up()
         .up() // close GetDigits
@@ -83,8 +83,10 @@ export const plivoAnswerHandle = async (req, res) => {
       // Respond and hang up
       const xml = create({ version: "1.0" })
         .ele("Response")
-        .ele("Speak")
-        .txt("Thank you. Your usual update will be sent. Goodbye.")
+        .ele("Play")
+        .txt(
+          "https://raw.githubusercontent.com/shahnoor-oneRoot/plivo-audios/main/audio/thanks.wav"
+        )
         .up()
         .end({ prettyPrint: true });
 
@@ -101,9 +103,9 @@ export const plivoAnswerHandle = async (req, res) => {
           timeout: "10",
           numDigits: "2",
         })
-        .ele("Speak")
+        .ele("Play")
         .txt(
-          "How many days until your crop will be ready? Please enter two digits."
+          "https://raw.githubusercontent.com/shahnoor-oneRoot/plivo-audios/main/audio/option2.wav"
         )
         .up()
         .up()
@@ -157,8 +159,10 @@ export const plivoDaysHandle = async (req, res) => {
 
     const xml = create({ version: "1.0" })
       .ele("Response")
-      .ele("Speak")
-      .txt(`You entered ${days} days. Thank you. Goodbye.`)
+      .ele("Play")
+      .txt(
+        `https://raw.githubusercontent.com/shahnoor-oneRoot/plivo-audios/main/audio/thanks.wav`
+      )
       .up()
       .end({ prettyPrint: true });
 
