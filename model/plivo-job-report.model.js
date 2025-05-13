@@ -45,6 +45,10 @@ const plivoCampaignSchema = new mongoose.Schema(
       type: [reportEntrySchema],
       default: [],
     },
+    no_of_pickups: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

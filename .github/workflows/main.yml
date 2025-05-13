@@ -1,0 +1,34 @@
+name: Daily RTH Plivo Campaign
+
+on:
+  # Runs at 9:00 AM IST (UTC+5:30) → 03:30 UTC daily
+  schedule:
+    - cron: "30 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  run-campaign:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Plivo Campaign
+        run: node jobs/plivo/Daily_plivo.job.js
+        env:
+          PLIVO_AUTH_ID: ${{ secrets.PLIVO_AUTH_ID }}
+          PLIVO_AUTH_TOKEN: ${{ secrets.PLIVO_AUTH_TOKEN }}
+          PLIVO_SOURCE_NUMBER: ${{ secrets.PLIVO_SOURCE_NUMBER }}
+          PLIVO_ANSWER_URL: ${{ secrets.PLIVO_ANSWER_URL }}
+          FARMERS_API_URL: ${{ secrets.FARMERS_API_URL }}
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          MAX_RECENT_REPORTS: ${{ secrets.MAX_RECENT_REPORTS }}
