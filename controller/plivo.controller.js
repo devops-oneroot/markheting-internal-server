@@ -4,8 +4,15 @@ import PlivoReport from "../model/plivo-job-report.model.js";
 
 export const plivoAnswer = async (req, res) => {
   try {
-    console.log("Plivo answer");
     const { reportId, cropName, label } = req.query;
+
+    await PlivoReport.updateOne(
+      { _id: reportId },
+      {
+        $inc: { no_of_pickups: 1 },
+      }
+    );
+
     if (label == "Daily_RTH") {
       const responseXml = create({ version: "1.0" })
         .ele("Response")
@@ -58,7 +65,6 @@ export const plivoAnswer = async (req, res) => {
 // Handle initial digit: 1 = usual, 2 = ask days
 export const plivoAnswerHandle = async (req, res) => {
   try {
-    console.log("Plivo answer-handle", req.body);
     const { reportId, cropName } = req.query;
     const { To, Digits } = req.body;
 
@@ -133,7 +139,6 @@ export const plivoAnswerHandle = async (req, res) => {
 
 export const plivoDaysHandle = async (req, res) => {
   try {
-    console.log("Plivo days-handle", req.body);
     const { reportId, cropName } = req.query;
     const { To, Digits } = req.body;
 
