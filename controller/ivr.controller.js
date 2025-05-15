@@ -28,12 +28,17 @@ export const ivrWebhook = async (req, res) => {
         identity: "Farmer",
         consent: "yes",
         consent_date: now,
-        tag:"Main IVR"
+        tag: "Main IVR",
       });
       tag = "new user";
     } else {
-      // 3b) Existing user, do not modify
-      tag = "existing user";
+      if (user.downloaded) {
+        tag = "App user";
+      } else if (user.downloaded == false) {
+        tag = "Onboard user";
+      } else {
+        tag = "Lead User";
+      }
     }
 
     // 4) Record IVR entry
@@ -54,18 +59,15 @@ export const ivrWebhook = async (req, res) => {
   }
 };
 
- export const ivrRecords = async (req, res) => {
+export const ivrRecords = async (req, res) => {
   try {
-    const data  =  await IVR.find({})
+    const data = await IVR.find({});
     if (!data) {
       return res.status(404).send("No data found");
     }
     return res.status(200).json(data);
-  
-    
   } catch (error) {
     console.error("Error in ivrUser:", error);
     return res.status(500).send("Internal Server Error");
-    
   }
-}
+};
