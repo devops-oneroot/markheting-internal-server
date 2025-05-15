@@ -8,6 +8,7 @@ import {
   location,
   findNonOnboardedOrDownloadableUsers,
   sendMessageToNewUsers,
+  getRTHFarmersNumberCSV,
 } from "../controller/userController.js";
 
 const route = Router();
@@ -29,5 +30,7 @@ route.post(
   upload.single("csv"),
   sendMessageToNewUsers
 );
+
+route.get("/get-rth-farmers-api", getRTHFarmersNumberCSV);
 
 export default route;
