@@ -155,6 +155,7 @@ export async function runPlivoCampaign() {
   const reportedSet = await getRecentlyContactedFarmers();
   const eligible = buyers.filter(
     ({ phoneNumber, cropname }) =>
+      cropname === "tender coconut" &&
       !reportedSet.has(`+${phoneNumber}-${cropname}`)
   );
 
@@ -165,6 +166,7 @@ export async function runPlivoCampaign() {
     label: "Daily_RTH",
     campaign_date: new Date(),
     campaign_report: [],
+    calls_placed: eligible.length,
   });
   const reportId = campaign._id.toString();
   console.info(`✅ Campaign created: ${reportId}`);
