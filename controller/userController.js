@@ -4,6 +4,7 @@ import csvParser from "csv-parser";
 import * as csvStringify from "csv-stringify";
 import { createUserWithFieldsAndFlow } from "../updatewhatsapp.js";
 import Bottleneck from "bottleneck";
+import { Parser } from "json2csv";
 
 const limiter = new Bottleneck({
   maxConcurrent: 1,
@@ -707,5 +708,46 @@ export const sendMessageToNewUsers = async (req, res) => {
   } catch (err) {
     console.error("sendMessageToNewUsers error:", err);
     return res.status(500).json({ error: err.message || "Server error" });
+  }
+};
+
+export const updateUser = async (req, res) => {
+  try {
+    const { number, ...updateFields } = req.body;
+    if (!number) {
+      return res.status(400).json({ error: "Phone number is required" });
+    }
+  } catch (error) {}
+};
+
+export const getRTHFarmersNumberCSV = async (req, res) => {
+  try {
+    const response = await fetch(
+      `${process.env.MARKHET_API_URI}/crop/rth/number/dial-whome`
+    );
+
+    if (!response.ok) {
+      return res
+        .status(response.status)
+        .json({ error: "Failed to fetch data from external API" });
+    }
+
+    const { farmers } = await response.json();
+
+    if (!farmers || !Array.isArray(farmers)) {
+      return res
+        .status(400)
+        .json({ error: "Invalid response format from external API" });
+    }
+
+    const json2csvParser = new Parser({ fields: ["first_name", "number"] });
+    const csv = json2csvParser.parse(farmers);
+    res.header("Content-Type", "text/csv");
+    res.attachment("farmers.csv");
+    res.send(csv);
+    return { message: "downloaded the RTH farmers numbers csv" };
+  } catch (err) {
+    console.error("Error fetching or converting data:", err.message);
+    res.status(500).json({ error: "Failed to fetch or convert farmer data" });
   }
 };
