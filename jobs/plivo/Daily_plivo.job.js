@@ -155,6 +155,7 @@ export async function runPlivoCampaign() {
   const reportedSet = await getRecentlyContactedFarmers();
   const eligible = buyers.filter(
     ({ phoneNumber, cropname }) =>
+      cropname === "tender coconut" &&
       !reportedSet.has(`+${phoneNumber}-${cropname}`)
   );
 
