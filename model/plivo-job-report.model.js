@@ -49,6 +49,14 @@ const plivoCampaignSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    number_pickups: {
+      type: [String],
+      default: [],
+    },
+    calls_placed: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

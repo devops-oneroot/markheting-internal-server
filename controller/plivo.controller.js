@@ -5,13 +5,17 @@ import PlivoReport from "../model/plivo-job-report.model.js";
 export const plivoAnswer = async (req, res) => {
   try {
     const { reportId, cropName, label } = req.query;
+    const { To } = req.body;
 
-    await PlivoReport.updateOne(
-      { _id: reportId },
-      {
-        $inc: { no_of_pickups: 1 },
+    const report = await PlivoReport.findById(reportId);
+
+    if (report) {
+      if (!report.number_pickups.includes(To)) {
+        report.number_pickups.push(To);
+        report.no_of_pickups = report.number_pickups.length;
+        await report.save();
       }
-    );
+    }
 
     if (label == "Daily_RTH") {
       const responseXml = create({ version: "1.0" })

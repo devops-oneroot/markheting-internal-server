@@ -165,6 +165,7 @@ export async function runPlivoCampaign() {
     label: "Daily_RTH",
     campaign_date: new Date(),
     campaign_report: [],
+    calls_placed: eligible.length,
   });
   const reportId = campaign._id.toString();
   console.info(`✅ Campaign created: ${reportId}`);
