@@ -723,7 +723,7 @@ export const updateUser = async (req, res) => {
 export const getRTHFarmersNumberCSV = async (req, res) => {
   try {
     const response = await fetch(
-      `${process.env.MARKHET_API_URI}/crop/rth/number/dial-whome`
+      `${process.env.MARKHET_API_URI}/crop/rth/number`
     );
 
     if (!response.ok) {
@@ -732,22 +732,32 @@ export const getRTHFarmersNumberCSV = async (req, res) => {
         .json({ error: "Failed to fetch data from external API" });
     }
 
-    const { farmers } = await response.json();
+    const body = await response.json();
 
-    if (!farmers || !Array.isArray(farmers)) {
+    if (body.code !== 200 || !Array.isArray(body.data)) {
       return res
         .status(400)
         .json({ error: "Invalid response format from external API" });
     }
 
-    const json2csvParser = new Parser({ fields: ["first_name", "number"] });
-    const csv = json2csvParser.parse(farmers);
+    // Map your data to match the desired CSV columns
+    const flattened = body.data.map((item) => ({
+      first_name: item.name,
+      number: item.phoneNumber,
+    }));
+
+    // Define only those two fields
+    const fields = ["first_name", "number"];
+    const json2csvParser = new Parser({ fields });
+    const csv = json2csvParser.parse(flattened);
+
     res.header("Content-Type", "text/csv");
     res.attachment("farmers.csv");
-    res.send(csv);
-    return { message: "downloaded the RTH farmers numbers csv" };
+    return res.send(csv);
   } catch (err) {
     console.error("Error fetching or converting data:", err.message);
-    res.status(500).json({ error: "Failed to fetch or convert farmer data" });
+    return res
+      .status(500)
+      .json({ error: "Failed to fetch or convert farmer data" });
   }
 };
