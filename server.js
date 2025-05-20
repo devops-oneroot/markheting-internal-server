@@ -6,6 +6,8 @@ import User from "./model/user.model.js";
 import userRoute from "./routes/userRoute.js";
 import plivoRoute from "./routes/plivo.route.js";
 import plivoReportRoute from "./routes/plivoReport.route.js";
+import agentRoutes from "./routes/agent.route.js";
+import ticketRoutes from "./routes/ticket.route.js";
 import ivrRoute from "./routes/ivr.route.js";
 import { createUserAndSendFlow, sendUpdateFlow } from "./whatsapp.js";
 import { format } from "fast-csv";
@@ -26,6 +28,8 @@ async function startServer() {
     app.use(plivoRoute);
     app.use(plivoReportRoute);
     app.use("/ivr", ivrRoute);
+    app.use("/agent", agentRoutes);
+    app.use("/ticket", ticketRoutes);
 
     app.get("/", (req, res) => {
       res.send("Welcome to market dashboard");

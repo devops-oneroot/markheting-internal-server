@@ -20,6 +20,15 @@ const userSchema = new mongoose.Schema(
     onboarded_date: { type: String, default: null },
     pincode: { type: Number, default: null },
     coordinates: { type: String, default: null },
+    notes: [
+      {
+        type: String,
+        time: {
+          type: Date,
+          default: Date.now(),
+        },
+      },
+    ],
   },
   { timestamps: true }
 );
