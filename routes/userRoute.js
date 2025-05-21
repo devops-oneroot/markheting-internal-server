@@ -8,6 +8,7 @@ import {
   location,
   findNonOnboardedOrDownloadableUsers,
   sendMessageToNewUsers,
+  getRTHFarmersNumberCSV,
 } from "../controller/userController.js";
 
 const route = Router();
