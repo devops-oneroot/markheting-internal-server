@@ -18,9 +18,6 @@ const limiter = new Bottleneck({
 const API_URL = process.env.CHATRACE_SEND_API_URL;
 const API_KEY = "1395255.RGxoUBKY0qID8rPI2KPuN4SRZrjh99eDrsCeFuQxrNQPuAbCT";
 
-console.log("API Key:", API_KEY);
-console.log("API URL:", API_URL);
-
 export async function createUserWithFieldsAndFlow({
   phone,
   name,

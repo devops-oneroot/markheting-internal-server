@@ -4,7 +4,7 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "k6 run k6Test.js",
     "server": "node --max-old-space-size=512 server.js",
     "start:dev": "nodemon server.js"
   },
@@ -23,12 +23,14 @@
     "fast-csv": "^5.0.2",
     "json2csv": "^6.0.0-alpha.2",
     "jsonwebtoken": "^9.0.2",
+    "k6": "^0.0.0",
     "mongodb": "^6.15.0",
     "mongoose": "^8.12.1",
     "multer": "^1.4.5-lts.1",
     "node-cron": "^3.0.3",
     "node-fetch": "^3.3.2",
     "nodemon": "^3.1.10",
+    "p-queue": "^8.1.0",
     "Parser": "^0.0.1",
     "plivo": "^4.69.6",
     "xmlbuilder2": "^3.1.1"

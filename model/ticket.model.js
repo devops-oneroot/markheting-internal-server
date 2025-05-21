@@ -6,6 +6,11 @@ const ticketSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
+  created_By: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Agent",
+    required: true,
+  },
   task: {
     type: String,
     required: true,
@@ -14,6 +19,7 @@ const ticketSchema = new mongoose.Schema({
     {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Agent",
+      required: true,
     },
   ],
   priority: {
@@ -30,10 +36,12 @@ const ticketSchema = new mongoose.Schema({
   },
   remarks: [
     {
-      type: String,
-      time: {
-        type: Date,
-        default: Date.now(),
+      remark: { type: String, required: true },
+      time: { type: Date, default: Date.now },
+      by: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Agent",
+        required: true,
       },
     },
   ],
@@ -43,8 +51,9 @@ const ticketSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["Pending" | "Closed" | "Opened" | "Waiting For"],
-    default: "Pending",
+    enum: ["Opened", "Waiting For", "Closed"],
+    default: "Opened",
+    required: true,
   },
   createdAt: {
     type: Date,

@@ -22,10 +22,15 @@ const userSchema = new mongoose.Schema(
     coordinates: { type: String, default: null },
     notes: [
       {
-        type: String,
+        note: { type: String },
         time: {
           type: Date,
           default: Date.now(),
+        },
+        by: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Agent",
+          required: true,
         },
       },
     ],

@@ -28,8 +28,6 @@ export async function createUserAndSendFlow({
 
   const endpoint = process.env.CHATRACE_SEND_API_URL;
 
-  console.log("API Key:", process.env.CHATRACE_API_KEY);
-  console.log("Endpoint:", endpoint);
   console.log("Sanitized Phone:", sanitizedPhone);
 
   const payload = {
@@ -80,8 +78,6 @@ export async function sendUpdateFlow({ phone }) {
 
   const endpoint = process.env.CHATRACE_SEND_API_URL;
 
-  console.log("API Key:", process.env.CHATRACE_API_KEY);
-  console.log("Endpoint:", endpoint);
   console.log("Sanitized Phone:", sanitizedPhone);
   try {
     const response = await limiter.schedule(() =>

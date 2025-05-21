@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import Agent from "../model/agent.model.js"; // adjust the path as needed
 import jwt from "jsonwebtoken";
+import User from "../model/user.model.js";
 
 export const createAgent = async (req, res) => {
   try {
@@ -127,7 +128,7 @@ export const getAgentById = async (req, res) => {
   }
 };
 
-export const verifyToken = (req, res, next) => {
+export const verifyToken = (req, res) => {
   try {
     const { token } = req.params;
     // Verify and decode
@@ -143,3 +144,45 @@ export const verifyToken = (req, res, next) => {
     return res.status(401).json({ message: "Invalid or expired token." });
   }
 };
+
+// export const addUserNotes = async (req, res) => {
+//   const agentId = "682b0414f0a29e17c1a519e7"; // hardcoded for now
+//   const { note, userId } = req.body;
+
+//   console.log(note, userId);
+
+//   if (!note) {
+//     return res.status(400).json({ message: "No note provided" });
+//   }
+
+//   try {
+//     const user = await User.findById("68189dd8af8983adccb1fdc8");
+
+//     console.log(user);
+
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     if (!Array.isArray(user.note)) {
+//       user.note = [];
+//     }
+
+//     user.note.push({
+//       note,
+//       by: agentId,
+//       createdAt: new Date(),
+//     });
+
+//     await user.save();
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Note added successfully",
+//       data: user.note,
+//     });
+//   } catch (error) {
+//     console.error("Internal server error", error);
+//     return res.status(500).json({ message: "Internal server error" });
+//   }
+// };
