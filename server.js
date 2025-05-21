@@ -12,6 +12,7 @@ import ivrRoute from "./routes/ivr.route.js";
 import aiBotsRoutes from "./routes/aiBotCalls.route.js";
 import { createUserAndSendFlow, sendUpdateFlow } from "./whatsapp.js";
 import { format } from "fast-csv";
+import { verifyMiddlewareToken } from "./middleware/auth.js";
 
 dotenv.config();
 const PORT = process.env.PORT || 3003;
@@ -31,7 +32,7 @@ async function startServer() {
     app.use("/ivr", ivrRoute);
     app.use("/agent", agentRoutes);
     app.use("/ticket", ticketRoutes);
-    app.use("/aibot", aiBotsRoutes);
+    app.use("/aibot", verifyMiddlewareToken, aiBotsRoutes);
 
     app.get("/", (req, res) => {
       res.send("Welcome to market dashboard");

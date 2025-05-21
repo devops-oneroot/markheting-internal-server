@@ -12,7 +12,7 @@ export const createTicket = async (req, res) => {
       dueDate,
       status,
     } = req.body;
-    const id = "682d8334a8a1a7ba01eae86a";
+    const id = req.user.id;
 
     if (!userId || !task || !dueDate) {
       return res.status(400).json({
@@ -46,7 +46,7 @@ export const createTicket = async (req, res) => {
 
 export const getTicketsOpenedById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.user.id;
     const agentObjectId = new mongoose.Types.ObjectId(id);
     const now = new Date();
     const startOfDay = new Date(now.setHours(0, 0, 0, 0));
@@ -109,7 +109,7 @@ export const getTicketsOpenedById = async (req, res) => {
 
 export const updateTicketById = async (req, res) => {
   const { id, status, remarks, priority, assigned_to } = req.body;
-  const agentId = "682b0414f0a29e17c1a519e7";
+  const agentId = req.user?.id;
 
   if (!id) {
     return res.status(400).json({ message: "No ticket ID provided." });
