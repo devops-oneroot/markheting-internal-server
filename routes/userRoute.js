@@ -9,7 +9,6 @@ import {
   findNonOnboardedOrDownloadableUsers,
   sendMessageToNewUsers,
   getRTHFarmersNumberCSV,
-  getUser,
 } from "../controller/userController.js";
 
 const route = Router();
@@ -25,7 +24,6 @@ route.post(
   upload.single("csv"),
   findNonOnboardedOrDownloadableUsers
 );
-route.get("/get", getUser);
 
 route.post(
   "/new-users-update-wsmessage",
