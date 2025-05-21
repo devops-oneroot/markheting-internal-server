@@ -20,6 +20,20 @@ const userSchema = new mongoose.Schema(
     onboarded_date: { type: String, default: null },
     pincode: { type: Number, default: null },
     coordinates: { type: String, default: null },
+    notes: [
+      {
+        note: { type: String },
+        time: {
+          type: Date,
+          default: Date.now(),
+        },
+        by: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Agent",
+          required: true,
+        },
+      },
+    ],
   },
   { timestamps: true }
 );
