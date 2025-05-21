@@ -31,8 +31,8 @@ async function startServer() {
     app.use(plivoReportRoute);
     app.use("/ivr", ivrRoute);
     app.use("/agent", agentRoutes);
-    app.use("/ticket", ticketRoutes);
-    app.use("/aibot", verifyMiddlewareToken, aiBotsRoutes);
+    app.use("/ticket", verifyMiddlewareToken, ticketRoutes);
+    app.use("/aibot", aiBotsRoutes);
 
     app.get("/", (req, res) => {
       res.send("Welcome to market dashboard");
