@@ -5,6 +5,7 @@ import * as csvStringify from "csv-stringify";
 import { createUserWithFieldsAndFlow } from "../updatewhatsapp.js";
 import Bottleneck from "bottleneck";
 import { Parser } from "json2csv";
+import archiver from "archiver";
 
 const limiter = new Bottleneck({
   maxConcurrent: 1,
@@ -734,30 +735,48 @@ export const getRTHFarmersNumberCSV = async (req, res) => {
 
     const body = await response.json();
 
-    if (body.code !== 200 || !Array.isArray(body.data)) {
+    if (body.code !== 200 || !body.data) {
       return res
         .status(400)
         .json({ error: "Invalid response format from external API" });
     }
 
-    // Map your data to match the desired CSV columns
-    const flattened = body.data.map((item) => ({
-      first_name: item.name,
-      number: item.phoneNumber,
-    }));
+    const { pakka_ready = [], maybe_ready = [] } = body.data;
 
-    // Define only those two fields
-    const fields = ["first_name", "number"];
-    const json2csvParser = new Parser({ fields });
-    const csv = json2csvParser.parse(flattened);
+    const parseToCSV = (data) => {
+      const fields = ["first_name", "number"];
+      const json2csvParser = new Parser({ fields });
+      return json2csvParser.parse(
+        data.map((item) => ({
+          first_name: item.name,
+          number: item.phoneNumber,
+        }))
+      );
+    };
 
-    res.header("Content-Type", "text/csv");
-    res.attachment("farmers.csv");
-    return res.send(csv);
+    const pakkaCSV = parseToCSV(pakka_ready);
+    const maybeCSV = parseToCSV(maybe_ready);
+
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=farmers_csvs.zip"
+    );
+
+    const archive = archiver("zip", { zlib: { level: 9 } });
+
+    archive.on("error", (err) => {
+      throw err;
+    });
+
+    archive.pipe(res);
+
+    archive.append(pakkaCSV, { name: "pakka_ready_farmers.csv" });
+    archive.append(maybeCSV, { name: "maybe_ready_farmers.csv" });
+
+    await archive.finalize();
   } catch (err) {
-    console.error("Error fetching or converting data:", err.message);
-    return res
-      .status(500)
-      .json({ error: "Failed to fetch or convert farmer data" });
+    console.error("ZIP generation error:", err.message);
+    return res.status(500).json({ error: "Failed to generate ZIP file" });
   }
 };
