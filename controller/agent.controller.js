@@ -145,6 +145,16 @@ export const verifyToken = (req, res) => {
   }
 };
 
+export const getAllAgents = async (req, res) => {
+  try {
+    const agents = await Agent.find();
+    return res.status(200).json(agents);
+  } catch (error) {
+    console.log("internal server error", error);
+    return res.status(500);
+  }
+};
+
 // export const addUserNotes = async (req, res) => {
 //   const agentId = "682b0414f0a29e17c1a519e7"; // hardcoded for now
 //   const { note, userId } = req.body;
