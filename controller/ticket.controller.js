@@ -46,7 +46,7 @@ export const createTicket = async (req, res) => {
 
 export const getTicketsOpenedById = async (req, res) => {
   try {
-    const { id } = req.user.id;
+    const id = req.user;
     const agentObjectId = new mongoose.Types.ObjectId(id);
     const now = new Date();
     const startOfDay = new Date(now.setHours(0, 0, 0, 0));
