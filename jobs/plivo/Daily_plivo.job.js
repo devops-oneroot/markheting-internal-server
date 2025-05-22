@@ -64,26 +64,29 @@ async function connectMongo() {
 }
 
 /**
- * Fetch farmers/buyers data from API
+ * Fetch farmers (maybe-ready) data from API
  */
 async function fetchBuyers() {
   try {
     const response = await fetch(FARMERS_API_URL);
     if (!response.ok) throw new Error(`API error! Status: ${response.status}`);
 
-    const data = await response.json();
-    if (!data.data || !Array.isArray(data.data)) {
-      throw new Error("Invalid data format received from API");
+    const apiData = await response.json();
+    const list = apiData.data?.maybe_ready;
+    if (!Array.isArray(list)) {
+      throw new Error(
+        "Invalid data format: 'maybe_ready' is missing or not an array"
+      );
     }
 
-    const buyers = data.data
+    const buyers = list
       .map(({ phoneNumber, cropname }) => ({
         phoneNumber,
         cropname: cropname?.toLowerCase?.().trim() || "",
       }))
       .filter((b) => b.phoneNumber && b.cropname);
 
-    console.info(`✅ Fetched ${buyers.length} buyers from API`);
+    console.info(`✅ Fetched ${buyers.length} maybe_ready buyers from API`);
     return buyers;
   } catch (error) {
     console.error(`❌ Failed to fetch buyers: ${error.message}`);
@@ -150,7 +153,7 @@ export async function runPlivoCampaign() {
   console.info("🚀 Running Plivo campaign...");
 
   const buyers = await fetchBuyers();
-  if (!buyers.length) return console.warn("No buyers found");
+  if (!buyers.length) return console.warn("No maybe_ready buyers found");
 
   const reportedSet = await getRecentlyContactedFarmers();
   const eligible = buyers.filter(
@@ -175,7 +178,9 @@ export async function runPlivoCampaign() {
     await new Promise((r) => setTimeout(r, 1000));
     try {
       await placeCall(phoneNumber, cropname, reportId);
-    } catch {}
+    } catch (err) {
+      console.error(`❌ Error placing call to ${phoneNumber}: ${err.message}`);
+    }
   }
 
   console.info("✅ Campaign complete");

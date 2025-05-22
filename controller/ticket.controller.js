@@ -46,7 +46,7 @@ export const createTicket = async (req, res) => {
 
 export const getTicketsOpenedById = async (req, res) => {
   try {
-    const { id } = req.user.id;
+    const id = req.user;
     const agentObjectId = new mongoose.Types.ObjectId(id);
     const now = new Date();
     const startOfDay = new Date(now.setHours(0, 0, 0, 0));
@@ -108,7 +108,7 @@ export const getTicketsOpenedById = async (req, res) => {
 };
 
 export const updateTicketById = async (req, res) => {
-  const { id, status, remarks, priority, assigned_to } = req.body;
+  const { id, status, remarks, priority, task, assigned_to } = req.body;
   const agentId = req.user?.id;
 
   if (!id) {
@@ -134,6 +134,7 @@ export const updateTicketById = async (req, res) => {
     if (status) ticket.status = status;
     if (priority) ticket.priority = priority;
     if (assigned_to) ticket.assigned_to = assigned_to;
+    if (task) ticket.task = task;
     if (remarks) {
       ticket.remarks.push({
         remark: remarks,
@@ -211,6 +212,31 @@ export const getUserAssignedTicketsById = async (req, res) => {
     return res.status(200).json({ success: true, data: tickets });
   } catch (error) {
     console.error("getTicketsOpenedById error:", error);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+export const deleteTickets = async (req, res) => {
+  try {
+    const agentId = req?.body.id;
+    const { deleteIds } = req.body;
+    if (!Array.isArray(deleteIds) || deleteIds.length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "No ticket IDs provided." });
+    }
+
+    const result = await Ticket.deleteMany({
+      _id: { $in: deleteIds },
+      assigned_to: { $elemMatch: { $eq: agentId } },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `${result.deletedCount} ticket(s) deleted successfully.`,
+    });
+  } catch (error) {
+    console.error("deleteTickets error:", error);
     return res.status(500).json({ success: false, message: "Server Error" });
   }
 };

@@ -9,6 +9,7 @@ import {
   findNonOnboardedOrDownloadableUsers,
   sendMessageToNewUsers,
   getRTHFarmersNumberCSV,
+  AddUserNotes,
 } from "../controller/userController.js";
 
 const route = Router();
@@ -32,5 +33,6 @@ route.post(
 );
 
 route.get("/get-rth-farmers-api", getRTHFarmersNumberCSV);
+route.post("/user/add-note", AddUserNotes);
 
 export default route;

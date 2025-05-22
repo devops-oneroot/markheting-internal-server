@@ -712,13 +712,47 @@ export const sendMessageToNewUsers = async (req, res) => {
   }
 };
 
-export const updateUser = async (req, res) => {
+export const AddUserNotes = async (req, res) => {
   try {
-    const { number, ...updateFields } = req.body;
-    if (!number) {
-      return res.status(400).json({ error: "Phone number is required" });
+    const { number, note, agentId } = req.body;
+
+    if (!number || typeof number !== "string") {
+      return res.status(400).json({ error: "Valid phone number is required" });
     }
-  } catch (error) {}
+
+    if (!note || typeof note !== "string") {
+      return res.status(400).json({ error: "Note is required" });
+    }
+
+    if (!agentId || typeof agentId !== "string") {
+      return res.status(400).json({ error: "Agent ID is required" });
+    }
+
+    const updateResult = await User.findOneAndUpdate(
+      { number: number.trim() },
+      {
+        $push: {
+          notes: {
+            note: note.trim(),
+            by: agentId.trim(),
+            addedAt: new Date(),
+          },
+        },
+      },
+      { new: true } // returns the updated document
+    );
+
+    if (!updateResult) {
+      return res
+        .status(404)
+        .json({ message: "User not found for this number" });
+    }
+
+    return res.status(200).json({ message: "Note added successfully" });
+  } catch (error) {
+    console.error("Error adding note:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
 };
 
 export const getRTHFarmersNumberCSV = async (req, res) => {
