@@ -11,6 +11,13 @@ const ticketSchema = new mongoose.Schema({
     ref: "Agent",
     required: true,
   },
+  number: {
+    type: String,
+    required: true,
+  },
+  name: {
+    type: String,
+  },
   task: {
     type: String,
     required: true,

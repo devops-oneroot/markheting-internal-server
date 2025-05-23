@@ -11,6 +11,8 @@ export const createTicket = async (req, res) => {
       priority = "medium",
       dueDate,
       status,
+      name,
+      number,
     } = req.body;
     const id = req.user.id;
 
@@ -29,6 +31,8 @@ export const createTicket = async (req, res) => {
       dueDate,
       status: status ? status : "Opened",
       created_By: id,
+      name,
+      number,
     });
 
     return res.status(201).json({
