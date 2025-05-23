@@ -7,6 +7,7 @@ const aiBotCallsSchema = new mongoose.Schema(
     RecordingURL: { type: String, required: true },
     To: { type: String, required: true },
     no_of_trees: { type: Number, default: 0 },
+    has_added: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
