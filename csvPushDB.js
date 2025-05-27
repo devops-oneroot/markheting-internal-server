@@ -18,16 +18,12 @@ const processCSV = () => {
   fs.createReadStream(csvFilePath)
     .pipe(csvParser())
     .on("data", (data) => {
-      // If your CSV rows have an extra empty field (resulting in 8 keys instead of 7),
-      // remap the data accordingly. Assuming the CSV columns are:
-      // [name, number, identity, (empty), village, taluk, district, tag]
       const keys = Object.keys(data);
       if (keys.length === 8) {
         data = {
           name: data[keys[0]],
           number: data[keys[1]],
           identity: data[keys[2]],
-          // Skip keys[3] because it's an extra empty field
           village: data[keys[4]],
           taluk: data[keys[5]],
           district: data[keys[6]],

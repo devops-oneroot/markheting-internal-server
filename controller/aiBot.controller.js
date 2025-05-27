@@ -86,4 +86,42 @@ export const BotCallAddedStatus = async (req, res) => {
   }
 };
 
+export const sortByTrees = async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(1000, parseInt(req.query.limit, 10) || 50);
+    const skip = (page - 1) * limit;
+
+    const sort = { no_of_trees: -1 };
+
+    const total = await AiBotCalls.countDocuments();
+
+    const data = await AiBotCalls.find({})
+      .sort(sort)
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    const totalPages = Math.ceil(total / limit);
+
+    return res.status(200).json({
+      data,
+      meta: { total, page, limit, totalPages },
+    });
+  } catch (error) {
+    console.error("Error sorting AI bot calls by trees:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getAllNumbers = async (req, res) => {
+  try {
+    const numbers = await AiBotCalls.distinct("To");
+    return res.status(200).json({ numbers });
+  } catch (error) {
+    console.error("Error fetching all numbers:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 export default aibotcallswebhook;
