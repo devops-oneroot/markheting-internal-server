@@ -67,4 +67,23 @@ export const getAIcalls = async (req, res) => {
   }
 };
 
+export const BotCallAddedStatus = async (req, res) => {
+  try {
+    const { callId } = req.body;
+    if (!callId) {
+      return res.status(400).json({ message: "Call ID is required" });
+    }
+    const call = await AiBotCalls.findById(callId);
+    if (!call) {
+      return res.status(404).json({ message: "Call not found" });
+    }
+    call.has_added = call.has_added ? false : true;
+    await call.save();
+    return res.status(200).json({ message: "Call status updated", call });
+  } catch (error) {
+    console.error("Error updating call status:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 export default aibotcallswebhook;
