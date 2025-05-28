@@ -140,6 +140,88 @@ export const getAllNumbers = async (req, res) => {
   }
 };
 
+// Batch download with progress tracking (for very large datasets)
+export const downloadAIcallsBatch = async (req, res) => {
+  try {
+    const {
+      date,
+      from,
+      to,
+      recordingType,
+      search,
+      hasAdded,
+      minTrees,
+      maxTrees,
+      dateRange,
+      sortBy = "Date",
+      order = "desc",
+      batchSize = 1000,
+    } = req.query;
+
+    const query = buildAICallsQuery({
+      date,
+      from,
+      to,
+      recordingType,
+      search,
+      hasAdded,
+      minTrees,
+      maxTrees,
+      dateRange,
+    });
+
+    const totalRecords = await AiBotCalls.countDocuments(query);
+
+    if (totalRecords === 0) {
+      return res.status(404).json({
+        error: "No data found matching the specified filters",
+      });
+    }
+
+    const filename = `unique-phone-numbers-${Date.now()}.csv`;
+    const sortOrder = order === "asc" ? 1 : -1;
+    const sort = { [sortBy]: sortOrder };
+
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+    // Write CSV header
+    res.write("phoneNumber\n");
+
+    let skip = 0;
+    const uniqueNumbers = new Set();
+
+    while (skip < totalRecords) {
+      const batch = await AiBotCalls.find(query)
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(batchSize))
+        .lean()
+        .select("To");
+
+      if (batch.length === 0) break;
+
+      // Process batch and extract unique phone numbers
+      batch.forEach((call) => {
+        const phoneNumber = call.To;
+        if (phoneNumber && !uniqueNumbers.has(phoneNumber)) {
+          uniqueNumbers.add(phoneNumber);
+          res.write(phoneNumber + "\n");
+        }
+      });
+
+      skip += parseInt(batchSize);
+    }
+
+    res.end();
+  } catch (error) {
+    console.error("Error in batch download:", error.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  }
+};
+
 //helper function to build the query
 const buildAICallsQuery = ({
   date,
