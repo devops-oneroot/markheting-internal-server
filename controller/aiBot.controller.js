@@ -31,39 +31,55 @@ export const aibotcallswebhook = async (req, res) => {
 
 export const getAIcalls = async (req, res) => {
   try {
-    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limit = Math.min(1000, parseInt(req.query.limit, 10) || 50);
+    const {
+      page = 1,
+      date,
+      from,
+      to,
+      recordingType,
+      search,
+      hasAdded,
+      minTrees,
+      maxTrees,
+      dateRange,
+      sortBy = "Date",
+      order = "desc",
+    } = req.query;
+
+    const limit = 50;
     const skip = (page - 1) * limit;
+    const sortOrder = order === "asc" ? 1 : -1;
+    const sort = { [sortBy]: sortOrder };
 
-    const sortField = req.query.sortBy || "Date";
-    const sortOrder = req.query.order === "asc" ? 1 : -1;
-    const sort = { [sortField]: sortOrder };
+    const query = buildAICallsQuery({
+      date,
+      from,
+      to,
+      recordingType,
+      search,
+      hasAdded,
+      minTrees,
+      maxTrees,
+      dateRange,
+    });
 
-    const allowedFilters = ["Date", "Format", "From", "To", "RecordingType"];
-    const filters = {};
-    for (const key of allowedFilters) {
-      if (req.query[key]) {
-        filters[key] = req.query[key];
-      }
-    }
+    // Execute both queries in parallel
+    const [calls, totalCalls] = await Promise.all([
+      AiBotCalls.find(query).sort(sort).skip(skip).limit(limit).lean(),
+      AiBotCalls.countDocuments(query),
+    ]);
 
-    const total = await AiBotCalls.countDocuments(filters);
-
-    const data = await AiBotCalls.find(filters)
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .lean();
-
-    const totalPages = Math.ceil(total / limit);
-
-    return res.status(200).json({
-      data,
-      meta: { total, page, limit, totalPages },
+    res.json({
+      calls,
+      totalPages: Math.ceil(totalCalls / limit),
+      totalCalls,
+      currentPage: parseInt(page),
+      hasNextPage: page < Math.ceil(totalCalls / limit),
+      hasPreviousPage: page > 1,
     });
   } catch (error) {
-    console.error("Error fetching AI bot calls:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    console.error("Error fetching AI bot calls:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
@@ -122,6 +138,68 @@ export const getAllNumbers = async (req, res) => {
     console.error("Error fetching all numbers:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
+};
+
+//helper function to build the query
+const buildAICallsQuery = ({
+  date,
+  from,
+  to,
+  recordingType,
+  search,
+  hasAdded,
+  minTrees,
+  maxTrees,
+  dateRange,
+}) => {
+  const query = {};
+
+  if (date) {
+    query.Date = date;
+  } else if (dateRange) {
+    const [startDate, endDate] = dateRange.split(",");
+    if (startDate && endDate) {
+      query.Date = { $gte: startDate, $lte: endDate };
+    }
+  }
+
+  if (from) {
+    query.From = new RegExp(from, "i");
+  }
+
+  if (to) {
+    query.To = new RegExp(to, "i"); // Case-insensitive partial match
+  }
+
+  // Recording type filtering (if you have this field)
+  if (recordingType) {
+    query.RecordingType = recordingType;
+  }
+
+  // Search across multiple fields
+  if (search) {
+    query.$or = [
+      { From: new RegExp(search, "i") },
+      { To: new RegExp(search, "i") },
+      { Date: new RegExp(search, "i") },
+    ];
+  }
+
+  // Boolean filtering for has_added
+  if (hasAdded !== undefined) {
+    query.has_added = hasAdded === "true";
+  }
+
+  // Tree count filtering
+  if (minTrees !== undefined) {
+    query.no_of_trees = { ...query.no_of_trees, $gte: parseInt(minTrees) };
+  }
+
+  if (maxTrees !== undefined) {
+    query.no_of_trees = { ...query.no_of_trees, $lte: parseInt(maxTrees) };
+  }
+
+  return query;
 };
 
 export default aibotcallswebhook;
