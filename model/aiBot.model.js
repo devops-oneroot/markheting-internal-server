@@ -8,6 +8,10 @@ const aiBotCallsSchema = new mongoose.Schema(
     To: { type: String, required: true },
     no_of_trees: { type: Number, default: 0 },
     has_added: { type: Boolean, default: false },
+    crop: {
+      type: String,
+    },
+    duration: { type: String, required: true },
   },
   { timestamps: true }
 );
