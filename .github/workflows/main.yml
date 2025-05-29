@@ -1,9 +1,9 @@
 name: Daily RTH Plivo Campaign
 
 on:
-  # Runs at 9:00 AM IST (UTC+5:30) → 03:30 UTC daily
+  # Runs at 6:00 PM IST (UTC+5:30) → 03:30 UTC daily
   schedule:
-    - cron: "30 3 * * *"
+    - cron: "30 12 * * *"
   workflow_dispatch:
 
 jobs:
