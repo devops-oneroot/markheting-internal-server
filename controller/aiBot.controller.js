@@ -6,7 +6,7 @@ export const aibotcallswebhook = async (req, res) => {
 
   webhookQueue
     .add(async () => {
-      const { Date, From, RecordingURL, To, no_of_trees } = req.body;
+      const { Date, From, RecordingURL, To, no_of_trees,crop,duration} = req.body;
 
       const record = {
         Date,
@@ -14,6 +14,8 @@ export const aibotcallswebhook = async (req, res) => {
         no_of_trees,
         RecordingURL,
         To,
+        crop,
+        duration,
       };
 
       try {
