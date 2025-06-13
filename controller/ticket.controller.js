@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import Ticket from "../model/ticket.model.js";
-import User from "../model/user.model.js"; 
 
 export const createTicket = async (req, res) => {
   try {
@@ -65,21 +64,65 @@ export const createTicket = async (req, res) => {
   }
 };
 
-export const getTicketsOpenedById = async (req, res) => {
+export const getTicketById = async (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    return res.status(400).json({ message: "No ticket ID provided." });
+  }
+  try {
+    const ticket = await Ticket.findById(id);
+    if (!ticket) {
+      return res.status(404).json({ message: "Ticket not found." });
+    }
+
+    const agentId = req.user?.id;
+    const role = req.role;
+
+    if (role === "agent") {
+      const isAssigned = ticket.assigned_to.some(
+        (assignedAgentId) => assignedAgentId.toString() === agentId
+      );
+
+      if (!isAssigned) {
+        return res.status(403).json({
+          message: "Access denied. You are not assigned to this ticket.",
+        });
+      }
+    }
+
+    return res.status(200).json({ success: true, data: ticket });
+  } catch (error) {
+    console.error("getTicketById error:", error);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+export const getTicketsOpened = async (req, res) => {
   try {
     const id = req.user;
+    const role = req.role;
     const agentObjectId = new mongoose.Types.ObjectId(id);
     const now = new Date();
     const startOfDay = new Date(now.setHours(0, 0, 0, 0));
     const endOfDay = new Date(now.setHours(23, 59, 59, 999));
 
+    console.log("role:", role);
+
+    let matchStage;
+    if (role === "admin") {
+      matchStage = {
+        status: { $in: ["Opened", "Waiting For"] },
+      };
+    } else {
+      matchStage = {
+        assigned_to: agentObjectId,
+        status: { $in: ["Opened", "Waiting For"] },
+      };
+    }
+
     const tickets = await Ticket.aggregate([
-      {
-        $match: {
-          assigned_to: agentObjectId,
-          status: { $in: ["Opened", "Waiting For"] },
-        },
-      },
+      { $match: matchStage },
       {
         $addFields: {
           priorityRank: {
@@ -131,6 +174,7 @@ export const getTicketsOpenedById = async (req, res) => {
 export const updateTicketById = async (req, res) => {
   const { id, status, remarks, priority, task, assigned_to } = req.body;
   const agentId = req.user?.id;
+  const role = req.role;
 
   if (!id) {
     return res.status(400).json({ message: "No ticket ID provided." });
@@ -142,14 +186,16 @@ export const updateTicketById = async (req, res) => {
       return res.status(404).json({ message: "Ticket not found." });
     }
 
-    const isAssigned = ticket.assigned_to.some(
-      (assignedAgentId) => assignedAgentId.toString() === agentId
-    );
+    if (role === "agent") {
+      const isAssigned = ticket.assigned_to.some(
+        (assignedAgentId) => assignedAgentId.toString() === agentId
+      );
 
-    if (!isAssigned) {
-      return res.status(403).json({
-        message: "Access denied. You are not assigned to this ticket.",
-      });
+      if (!isAssigned) {
+        return res.status(403).json({
+          message: "Access denied. You are not assigned to this ticket.",
+        });
+      }
     }
 
     if (status) ticket.status = status;
@@ -262,29 +308,50 @@ export const deleteTickets = async (req, res) => {
   }
 };
 
-
-
-
-// Controller function to fetch user data
-export const getUserById = async (req, res) => {
+export const multiTicketUpdate = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { ticketIds, status, priority, assigned_to } = req.body;
+    const agentId = req.user?.id;
+    const role = req.role;
 
-    // Validate userId
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ success: false, message: "Invalid user ID" });
+    if (!Array.isArray(ticketIds) || ticketIds.length === 0) {
+      return res.status(400).json({ message: "No ticket IDs provided." });
     }
 
-    // Fetch user from the database
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+    const tickets = await Ticket.find({
+      _id: { $in: ticketIds },
+    });
+
+    if (tickets.length === 0) {
+      return res.status(404).json({ message: "No tickets found." });
     }
 
-    // Return user data
-    return res.status(200).json({ success: true, data: user });
+    if (role === "agent") {
+      const allAssigned = tickets.every((ticket) =>
+        Array.isArray(ticket.assigned_to)
+          ? ticket.assigned_to.some((id) => id.toString() === agentId)
+          : ticket.assigned_to?.toString() === agentId
+      );
+      if (!allAssigned) {
+        return res.status(401).json({
+          message: "Access denied. Not all tickets are assigned to you.",
+        });
+      }
+    }
+
+    for (const ticket of tickets) {
+      if (status) ticket.status = status;
+      if (priority) ticket.priority = priority;
+      if (assigned_to) ticket.assigned_to = assigned_to;
+
+      await ticket.save();
+    }
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Tickets updated successfully." });
   } catch (error) {
-    console.error("getUserById error:", error);
+    console.error("multiTicketUpdate error:", error);
     return res.status(500).json({ success: false, message: "Server Error" });
   }
 };

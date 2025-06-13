@@ -813,9 +813,8 @@ export const getRTHFarmersNumberCSV = async (req, res) => {
     console.error("ZIP generation error:", err.message);
     return res.status(500).json({ error: "Failed to generate ZIP file" });
   }
-
-
 };
+
 export const getUserByNumber = async (req, res) => {
   try {
     const { number } = req.params;
@@ -827,7 +826,9 @@ export const getUserByNumber = async (req, res) => {
     const user = await User.findOne({ number: number.trim() }).lean();
 
     if (!user) {
-      return res.status(404).json({ message: "User not found for this number" });
+      return res
+        .status(404)
+        .json({ message: "User not found for this number" });
     }
 
     return res.status(200).json(user);
@@ -835,4 +836,4 @@ export const getUserByNumber = async (req, res) => {
     console.error("Error fetching user by number:", error);
     return res.status(500).json({ error: "Internal Server Error" });
   }
-}
+};

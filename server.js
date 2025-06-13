@@ -9,6 +9,7 @@ import plivoReportRoute from "./routes/plivoReport.route.js";
 import agentRoutes from "./routes/agent.route.js";
 import ticketRoutes from "./routes/ticket.route.js";
 import ivrRoute from "./routes/ivr.route.js";
+import adminRoutes from "./routes/admin.route.js";
 import aiBotsRoutes from "./routes/aiBotCalls.route.js";
 import { createUserAndSendFlow, sendUpdateFlow } from "./whatsapp.js";
 import { format } from "fast-csv";
@@ -32,6 +33,7 @@ async function startServer() {
     app.use("/ivr", ivrRoute);
     app.use("/agent", agentRoutes);
     app.use("/ticket", verifyMiddlewareToken, ticketRoutes);
+    app.use("/admin", verifyMiddlewareToken, adminRoutes);
     app.use("/aibot", aiBotsRoutes);
 
     app.get("/", (req, res) => {
