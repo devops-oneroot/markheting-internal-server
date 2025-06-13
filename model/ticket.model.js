@@ -4,42 +4,90 @@ const ticketSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
-    required: true,
+    
   },
   created_By: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Agent",
-    required: true,
+   
   },
   number: {
     type: String,
-    required: true,
+ 
   },
   name: {
     type: String,
   },
   task: {
     type: String,
-    required: true,
+  
   },
+  taluk: {
+    type: String,
+    
+  },
+  district: {
+    type: String,
+    
+  },
+  pincode: {
+    type: String,
+    
+  },
+  tag: {
+    type: String,
+   
+  },
+  downloaded: {
+    type: Boolean,
+    default: false,
+    
+  },
+  consent: {
+    type: Boolean,
+    default: false,
+    
+  },
+  consent_date: {
+    type: Date,
+    default: Date.now,
+    
+  },
+  village: {
+    type: String,
+    
+  },
+  age: {
+    type: Number,
+    min: 0,
+    max: 120,
+    
+  },
+  farmer_category: {
+    type: String,
+ 
+    
+    
+  },
+
   assigned_to: [
     {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Agent",
-      required: true,
+      
     },
   ],
   priority: {
     type: String,
-    enum: ["low", "medium", "high", "ASAP"],
+    enum: ["low", "medium", "high", "asap"],
     default: "medium",
-    required: true,
+ 
   },
   cropName: {
     type: String,
     enum: ["Tender Coconut", "Dry Coconut", "Turmeric", "Banana", "NAP"],
     default: "NAP",
-    required: true,
+    
   },
   remarks: [
     {
@@ -48,19 +96,19 @@ const ticketSchema = new mongoose.Schema({
       by: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Agent",
-        required: true,
+        
       },
     },
   ],
   dueDate: {
     type: Date,
-    required: true,
+  
   },
   status: {
     type: String,
     enum: ["Opened", "Waiting For", "Closed"],
     default: "Opened",
-    required: true,
+   
   },
   createdAt: {
     type: Date,

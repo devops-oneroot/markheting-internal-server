@@ -1,52 +1,67 @@
 import mongoose from "mongoose";
 import Ticket from "../model/ticket.model.js";
+import User from "../model/user.model.js"; 
 
-// Create a new ticket
 export const createTicket = async (req, res) => {
   try {
+    // Create the ticket
     const {
-      userId,
-      task,
-      assigned_to = [],
-      priority = "medium",
-      cropName = "NAP",
-      dueDate,
-      status,
-      name,
-      number,
-    } = req.body;
-    const id = req.user.id;
-
-    if (!userId || !task || !dueDate) {
-      return res.status(400).json({
-        success: false,
-        message: "userId, task, and dueDate are required to create a ticket.",
-      });
-    }
-
-    const ticket = await Ticket.create({
-      userId,
+      _id,
       task,
       assigned_to,
       priority,
       cropName,
       dueDate,
-      status: status ? status : "Opened",
+      status,
+      id,
+      name,
+      number,
+      taluk,
+      district,
+      pincode,
+      tag,
+      downloaded,
+      consent,
+      consent_date,
+      village,
+      age,
+      farmer_category,
+    } = req.body;
+
+    const ticket = await Ticket.create({
+      _id,
+      task,
+      assigned_to,
+      priority,
+      cropName,
+      dueDate,
+      status: status || "Opened",
       created_By: id,
       name,
       number,
+      taluk,
+      district,
+      pincode,
+      tag,
+      downloaded,
+      consent,
+      consent_date: consent_date, // Map to the schema field
+      village,
+      age,
+      farmer_category: farmer_category, // Map to the schema field
     });
 
     return res.status(201).json({
       success: true,
-      message: "Ticket created successfully.",
+      message: "Ticket created successfullyyyy.",
       data: ticket,
     });
   } catch (error) {
-    console.error("createTicket error:", error);
-    return res
-      .status(500)
-      .json({ success: false, message: "Internal server error." });
+    console.error("createTicket error:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error.",
+    });
   }
 };
 
@@ -70,7 +85,7 @@ export const getTicketsOpenedById = async (req, res) => {
           priorityRank: {
             $switch: {
               branches: [
-                { case: { $eq: ["$priority", "ASAP"] }, then: 1 },
+                { case: { $eq: ["$priority", "asap"] }, then: 1 },
                 { case: { $eq: ["$priority", "high"] }, then: 2 },
                 { case: { $eq: ["$priority", "medium"] }, then: 3 },
                 { case: { $eq: ["$priority", "low"] }, then: 4 },
@@ -85,7 +100,7 @@ export const getTicketsOpenedById = async (req, res) => {
           groupRank: {
             $switch: {
               branches: [
-                { case: { $eq: ["$priority", "ASAP"] }, then: 1 },
+                { case: { $eq: ["$priority", "asap"] }, then: 1 },
                 { case: { $lt: ["$dueDate", startOfDay] }, then: 2 },
                 {
                   case: {
@@ -178,7 +193,7 @@ export const getUserAssignedTicketsById = async (req, res) => {
           priorityRank: {
             $switch: {
               branches: [
-                { case: { $eq: ["$priority", "ASAP"] }, then: 1 },
+                { case: { $eq: ["$priority", "asap"] }, then: 1 },
                 { case: { $eq: ["$priority", "high"] }, then: 2 },
                 { case: { $eq: ["$priority", "medium"] }, then: 3 },
                 { case: { $eq: ["$priority", "low"] }, then: 4 },
@@ -194,7 +209,7 @@ export const getUserAssignedTicketsById = async (req, res) => {
             $switch: {
               branches: [
                 { case: { $eq: ["$status", "Closed"] }, then: 6 },
-                { case: { $eq: ["$priority", "ASAP"] }, then: 1 },
+                { case: { $eq: ["$priority", "asap"] }, then: 1 },
                 { case: { $lt: ["$dueDate", startOfDay] }, then: 2 },
                 {
                   case: {
@@ -243,6 +258,33 @@ export const deleteTickets = async (req, res) => {
     });
   } catch (error) {
     console.error("deleteTickets error:", error);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+
+
+
+// Controller function to fetch user data
+export const getUserById = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Validate userId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ success: false, message: "Invalid user ID" });
+    }
+
+    // Fetch user from the database
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // Return user data
+    return res.status(200).json({ success: true, data: user });
+  } catch (error) {
+    console.error("getUserById error:", error);
     return res.status(500).json({ success: false, message: "Server Error" });
   }
 };
