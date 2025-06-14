@@ -40,7 +40,6 @@ async function startServer() {
       res.send("Welcome to market dashboard");
     });
 
-    // Fetch distinct tags
     app.get("/tags", async (req, res) => {
       try {
         const tags = await User.distinct("tag", { tag: { $nin: [null, ""] } });
@@ -51,7 +50,6 @@ async function startServer() {
       }
     });
 
-    // Fetch users with filters
     app.get("/users", async (req, res) => {
       try {
         const {
@@ -62,9 +60,15 @@ async function startServer() {
           date,
           search,
           category,
+          hobli,
+          village,
+          taluk,
+          district
         } = req.query;
+
         const limit = 50;
         const skip = (page - 1) * limit;
+
         const query = buildUserQuery({
           tag,
           consent,
@@ -72,6 +76,10 @@ async function startServer() {
           date,
           search,
           category,
+          hobli,
+          village,
+          taluk,
+          district
         });
 
         const [users, totalUsers] = await Promise.all([
@@ -90,19 +98,25 @@ async function startServer() {
       }
     });
 
-    // Download CSV of filtered users
     app.get("/download-users", async (req, res) => {
       try {
-        const { tag, consent, date, downloaded, category, columns } = req.query;
+        const {
+          tag,
+          consent,
+          date,
+          downloaded,
+          category,
+          columns,
+          hobli,
+          village,
+          taluk,
+          district,
+          from,
+          to
+        } = req.query;
 
-        // parse & sanitize pagination params (make from 1-based inclusive)
-        let from = parseInt(req.query.from, 10);
-        let to = parseInt(req.query.to, 10);
-        if (isNaN(from) || from < 1) from = 1;
-        if (isNaN(to) || to < from) to = from;
-
-        const startIdx = from - 1; // zero-based skip
-        const count = to - (from - 1); // inclusive limit: to - startIdx
+        let startIdx = Math.max(parseInt(from, 10) - 1 || 0, 0);
+        let count = Math.max(parseInt(to, 10) - startIdx || 50, 1);
 
         const query = buildUserQuery({
           tag,
@@ -110,11 +124,14 @@ async function startServer() {
           downloaded,
           date,
           category,
+          hobli,
+          village,
+          taluk,
+          district
         });
+
         const fields = selectCsvFields(columns);
-        const filename = `users_${tag || "all"}_${
-          category || "all"
-        }_${Date.now()}.csv`;
+        const filename = `users_${tag || "all"}_${category || "all"}_${Date.now()}.csv`;
 
         res.setHeader("Content-Type", "text/csv");
         res.setHeader(
@@ -122,7 +139,6 @@ async function startServer() {
           `attachment; filename="${filename}"`
         );
 
-        // build a cursor that skips startIdx and takes exactly `count` docs
         const cursor = User.find(query)
           .sort({ _id: 1 })
           .skip(startIdx)
@@ -158,7 +174,6 @@ async function startServer() {
     });
 
     app.get("/webhook", handleWebhook);
-
     app.get("/update-webhook", handleUpdateWebhook);
 
     app.listen(PORT, () => {
@@ -170,9 +185,18 @@ async function startServer() {
   }
 }
 
-// Utilities and handlers
-
-function buildUserQuery({ tag, consent, downloaded, date, search, category }) {
+function buildUserQuery({
+  tag,
+  consent,
+  downloaded,
+  date,
+  search,
+  category,
+  hobli,
+  village,
+  taluk,
+  district
+}) {
   const query = {};
 
   if (tag) query.tag = tag;
@@ -201,6 +225,11 @@ function buildUserQuery({ tag, consent, downloaded, date, search, category }) {
     };
     query.farmer_category = categoryMap[category] || category;
   }
+
+  if (hobli) query.hobli = { $regex: hobli, $options: "i" };
+  if (village) query.village = { $regex: village, $options: "i" };
+  if (taluk) query.taluk = { $regex: taluk, $options: "i" };
+  if (district) query.district = { $regex: district, $options: "i" };
 
   return query;
 }
@@ -284,7 +313,6 @@ async function handleUpdateWebhook(req, res) {
   } catch (error) {
     console.error("Error in update webhook:", error);
     res.status(500).json({ error: "Internal Server Error" });
-    ``;
   }
 }
 
