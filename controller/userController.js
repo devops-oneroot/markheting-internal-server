@@ -814,3 +814,26 @@ export const getRTHFarmersNumberCSV = async (req, res) => {
     return res.status(500).json({ error: "Failed to generate ZIP file" });
   }
 };
+
+export const getUserByNumber = async (req, res) => {
+  try {
+    const { number } = req.params;
+
+    if (!number || typeof number !== "string") {
+      return res.status(400).json({ error: "Valid phone number is required" });
+    }
+
+    const user = await User.findOne({ number: number.trim() }).lean();
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "User not found for this number" });
+    }
+
+    return res.status(200).json(user);
+  } catch (error) {
+    console.error("Error fetching user by number:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};

@@ -1,76 +1,134 @@
 import mongoose from "mongoose";
 import Ticket from "../model/ticket.model.js";
 
-// Create a new ticket
 export const createTicket = async (req, res) => {
   try {
+    // Create the ticket
     const {
-      userId,
-      task,
-      assigned_to = [],
-      priority = "medium",
-      cropName = "NAP",
-      dueDate,
-      status,
-      name,
-      number,
-    } = req.body;
-    const id = req.user.id;
-
-    if (!userId || !task || !dueDate) {
-      return res.status(400).json({
-        success: false,
-        message: "userId, task, and dueDate are required to create a ticket.",
-      });
-    }
-
-    const ticket = await Ticket.create({
-      userId,
+      _id,
       task,
       assigned_to,
       priority,
       cropName,
       dueDate,
-      status: status ? status : "Opened",
+      status,
+      id,
+      name,
+      number,
+      taluk,
+      district,
+      pincode,
+      tag,
+      downloaded,
+      consent,
+      consent_date,
+      village,
+      age,
+      farmer_category,
+    } = req.body;
+
+    const ticket = await Ticket.create({
+      _id,
+      task,
+      assigned_to,
+      priority,
+      cropName,
+      dueDate,
+      status: status || "Opened",
       created_By: id,
       name,
       number,
+      taluk,
+      district,
+      pincode,
+      tag,
+      downloaded,
+      consent,
+      consent_date: consent_date, // Map to the schema field
+      village,
+      age,
+      farmer_category: farmer_category, // Map to the schema field
     });
 
     return res.status(201).json({
       success: true,
-      message: "Ticket created successfully.",
+      message: "Ticket created successfullyyyy.",
       data: ticket,
     });
   } catch (error) {
-    console.error("createTicket error:", error);
-    return res
-      .status(500)
-      .json({ success: false, message: "Internal server error." });
+    console.error("createTicket error:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error.",
+    });
   }
 };
 
-export const getTicketsOpenedById = async (req, res) => {
+export const getTicketById = async (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    return res.status(400).json({ message: "No ticket ID provided." });
+  }
+  try {
+    const ticket = await Ticket.findById(id);
+    if (!ticket) {
+      return res.status(404).json({ message: "Ticket not found." });
+    }
+
+    const agentId = req.user?.id;
+    const role = req.role;
+
+    if (role === "agent") {
+      const isAssigned = ticket.assigned_to.some(
+        (assignedAgentId) => assignedAgentId.toString() === agentId
+      );
+
+      if (!isAssigned) {
+        return res.status(403).json({
+          message: "Access denied. You are not assigned to this ticket.",
+        });
+      }
+    }
+
+    return res.status(200).json({ success: true, data: ticket });
+  } catch (error) {
+    console.error("getTicketById error:", error);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+export const getTicketsOpened = async (req, res) => {
   try {
     const id = req.user;
+    const role = req.role;
     const agentObjectId = new mongoose.Types.ObjectId(id);
     const now = new Date();
     const startOfDay = new Date(now.setHours(0, 0, 0, 0));
     const endOfDay = new Date(now.setHours(23, 59, 59, 999));
 
+    console.log("role:", role);
+
+    let matchStage;
+    if (role === "admin") {
+      matchStage = {
+        status: { $in: ["Opened", "Waiting For"] },
+      };
+    } else {
+      matchStage = {
+        assigned_to: agentObjectId,
+        status: { $in: ["Opened", "Waiting For"] },
+      };
+    }
+
     const tickets = await Ticket.aggregate([
-      {
-        $match: {
-          assigned_to: agentObjectId,
-          status: { $in: ["Opened", "Waiting For"] },
-        },
-      },
+      { $match: matchStage },
       {
         $addFields: {
           priorityRank: {
             $switch: {
               branches: [
-                { case: { $eq: ["$priority", "ASAP"] }, then: 1 },
+                { case: { $eq: ["$priority", "asap"] }, then: 1 },
                 { case: { $eq: ["$priority", "high"] }, then: 2 },
                 { case: { $eq: ["$priority", "medium"] }, then: 3 },
                 { case: { $eq: ["$priority", "low"] }, then: 4 },
@@ -85,7 +143,7 @@ export const getTicketsOpenedById = async (req, res) => {
           groupRank: {
             $switch: {
               branches: [
-                { case: { $eq: ["$priority", "ASAP"] }, then: 1 },
+                { case: { $eq: ["$priority", "asap"] }, then: 1 },
                 { case: { $lt: ["$dueDate", startOfDay] }, then: 2 },
                 {
                   case: {
@@ -116,6 +174,7 @@ export const getTicketsOpenedById = async (req, res) => {
 export const updateTicketById = async (req, res) => {
   const { id, status, remarks, priority, task, assigned_to } = req.body;
   const agentId = req.user?.id;
+  const role = req.role;
 
   if (!id) {
     return res.status(400).json({ message: "No ticket ID provided." });
@@ -127,14 +186,16 @@ export const updateTicketById = async (req, res) => {
       return res.status(404).json({ message: "Ticket not found." });
     }
 
-    const isAssigned = ticket.assigned_to.some(
-      (assignedAgentId) => assignedAgentId.toString() === agentId
-    );
+    if (role === "agent") {
+      const isAssigned = ticket.assigned_to.some(
+        (assignedAgentId) => assignedAgentId.toString() === agentId
+      );
 
-    if (!isAssigned) {
-      return res.status(403).json({
-        message: "Access denied. You are not assigned to this ticket.",
-      });
+      if (!isAssigned) {
+        return res.status(403).json({
+          message: "Access denied. You are not assigned to this ticket.",
+        });
+      }
     }
 
     if (status) ticket.status = status;
@@ -178,7 +239,7 @@ export const getUserAssignedTicketsById = async (req, res) => {
           priorityRank: {
             $switch: {
               branches: [
-                { case: { $eq: ["$priority", "ASAP"] }, then: 1 },
+                { case: { $eq: ["$priority", "asap"] }, then: 1 },
                 { case: { $eq: ["$priority", "high"] }, then: 2 },
                 { case: { $eq: ["$priority", "medium"] }, then: 3 },
                 { case: { $eq: ["$priority", "low"] }, then: 4 },
@@ -194,7 +255,7 @@ export const getUserAssignedTicketsById = async (req, res) => {
             $switch: {
               branches: [
                 { case: { $eq: ["$status", "Closed"] }, then: 6 },
-                { case: { $eq: ["$priority", "ASAP"] }, then: 1 },
+                { case: { $eq: ["$priority", "asap"] }, then: 1 },
                 { case: { $lt: ["$dueDate", startOfDay] }, then: 2 },
                 {
                   case: {
@@ -243,6 +304,54 @@ export const deleteTickets = async (req, res) => {
     });
   } catch (error) {
     console.error("deleteTickets error:", error);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+export const multiTicketUpdate = async (req, res) => {
+  try {
+    const { ticketIds, status, priority, assigned_to } = req.body;
+    const agentId = req.user?.id;
+    const role = req.role;
+
+    if (!Array.isArray(ticketIds) || ticketIds.length === 0) {
+      return res.status(400).json({ message: "No ticket IDs provided." });
+    }
+
+    const tickets = await Ticket.find({
+      _id: { $in: ticketIds },
+    });
+
+    if (tickets.length === 0) {
+      return res.status(404).json({ message: "No tickets found." });
+    }
+
+    if (role === "agent") {
+      const allAssigned = tickets.every((ticket) =>
+        Array.isArray(ticket.assigned_to)
+          ? ticket.assigned_to.some((id) => id.toString() === agentId)
+          : ticket.assigned_to?.toString() === agentId
+      );
+      if (!allAssigned) {
+        return res.status(401).json({
+          message: "Access denied. Not all tickets are assigned to you.",
+        });
+      }
+    }
+
+    for (const ticket of tickets) {
+      if (status) ticket.status = status;
+      if (priority) ticket.priority = priority;
+      if (assigned_to) ticket.assigned_to = assigned_to;
+
+      await ticket.save();
+    }
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Tickets updated successfully." });
+  } catch (error) {
+    console.error("multiTicketUpdate error:", error);
     return res.status(500).json({ success: false, message: "Server Error" });
   }
 };

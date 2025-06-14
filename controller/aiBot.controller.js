@@ -45,6 +45,7 @@ export const getAIcalls = async (req, res) => {
       minTrees,
       maxTrees,
       dateRange,
+      crop,
       sortBy = "Date",
       order = "desc",
     } = req.query;
@@ -58,6 +59,7 @@ export const getAIcalls = async (req, res) => {
       date,
       from,
       to,
+      crop,
       recordingType,
       search,
       hasAdded,
@@ -236,6 +238,7 @@ const buildAICallsQuery = ({
   minTrees,
   maxTrees,
   dateRange,
+  crop,
 }) => {
   const query = {};
 
@@ -246,6 +249,10 @@ const buildAICallsQuery = ({
     if (startDate && endDate) {
       query.Date = { $gte: startDate, $lte: endDate };
     }
+  }
+
+  if (crop) {
+    query.crop = new RegExp(crop, "i");
   }
 
   if (from) {

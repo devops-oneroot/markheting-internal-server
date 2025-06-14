@@ -10,6 +10,7 @@ import {
   sendMessageToNewUsers,
   getRTHFarmersNumberCSV,
   AddUserNotes,
+  getUserByNumber,
 } from "../controller/userController.js";
 
 const route = Router();
@@ -34,5 +35,6 @@ route.post(
 
 route.get("/get-rth-farmers-api", getRTHFarmersNumberCSV);
 route.post("/user/add-note", AddUserNotes);
+route.get("/get-user-by-number/:number",getUserByNumber)
 
 export default route;

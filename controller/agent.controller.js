@@ -5,7 +5,7 @@ import User from "../model/user.model.js";
 
 export const createAgent = async (req, res) => {
   try {
-    const { name, password, phoneNumber } = req.body;
+    const { name, password, phoneNumber, role = "agent" } = req.body;
     if (!name || !password || !phoneNumber) {
       return res
         .status(400)
@@ -25,6 +25,7 @@ export const createAgent = async (req, res) => {
       name,
       phoneNumber,
       passwordHash,
+      role,
     });
 
     const { passwordHash: _, ...agentData } = agent.toObject();
@@ -103,6 +104,7 @@ export const loginAgent = async (req, res) => {
       message: "Login successful.",
       token,
       agent: agentData,
+      role: agent.role,
     });
   } catch (error) {
     console.error("loginAgent error:", error);
