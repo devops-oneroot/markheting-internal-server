@@ -3,8 +3,12 @@ import User from "../model/user.model.js";
 
 export const ivrWebhook = async (req, res) => {
   try {
-    const { CallFrom: rawNumber, digits: rawDigits, CurrentTime } = req.query;
-    console.log(rawDigits, rawNumber);
+    const {
+      CallFrom: rawNumber,
+      digits: rawDigits,
+      CurrentTime,
+      ivrName,
+    } = req.query;
 
     // 1) Validate required param
     if (!rawNumber) {
@@ -28,7 +32,7 @@ export const ivrWebhook = async (req, res) => {
         identity: "Farmer",
         consent: "yes",
         consent_date: now,
-        tag: "Main IVR",
+        tag: ivrName,
       });
       tag = "new user";
     } else {
@@ -43,6 +47,7 @@ export const ivrWebhook = async (req, res) => {
 
     // 4) Record IVR entry
     const ivrEntry = await IVR.create({
+      name: ivrName,
       number,
       pressed,
       tag,
