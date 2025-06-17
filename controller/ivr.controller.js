@@ -1,5 +1,8 @@
 import IVR from "../model/ivr.model.js";
 import User from "../model/user.model.js";
+import { createUserAndSendFlow } from "../whatsapp.js";
+
+const ivrFlowId = "1741784066803";
 
 export const ivrWebhook = async (req, res) => {
   try {
@@ -41,6 +44,11 @@ export const ivrWebhook = async (req, res) => {
       } else if (user.downloaded == false) {
         tag = "Onboard user";
       } else {
+        if (user.consent !== "yes") {
+          user.consent = "yes";
+          user.consent_date = new Date();
+          await user.save();
+        }
         tag = "Lead User";
       }
     }
@@ -54,9 +62,12 @@ export const ivrWebhook = async (req, res) => {
       called_date: CurrentTime,
     });
 
+    const message = await createUserAndSendFlow(user.number, ivrFlowId, "IVR");
+
     return res.json({
       message: "IVR data saved successfully",
       data: ivrEntry,
+      message,
     });
   } catch (err) {
     console.error("Error in ivrWebhook:", err);
