@@ -2,7 +2,7 @@ import IVR from "../model/ivr.model.js";
 import User from "../model/user.model.js";
 import { createUserAndSendFlow } from "../whatsapp.js";
 
-const ivrFlowId = "1750143051951";
+const ivrFlowId = "1749799438832";
 
 export const ivrWebhook = async (req, res) => {
   try {
