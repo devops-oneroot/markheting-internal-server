@@ -1,0 +1,15 @@
+name: Daily API Request
+
+on:
+  schedule:
+    # Runs every day at 4:30 PM UTC (which is 10 PM IST)
+    - cron: "30 16 * * *"
+
+jobs:
+  hit-api:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Make API request
+        run: |
+          curl -X GET "https://campdash.onrender.com/update-database"
