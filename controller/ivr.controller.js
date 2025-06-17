@@ -65,7 +65,11 @@ export const ivrWebhook = async (req, res) => {
     console.log("IVR entry created:", ivrEntry);
     console.log("number:", number);
     console.log("ivrFlowId:", ivrFlowId);
-    const message = await createUserAndSendFlow(number, ivrFlowId, "IVR");
+    const message = await createUserAndSendFlow({
+      phone: number,
+      flowId: ivrFlowId,
+      type: "IVR",
+    });
     console.log("IVR message sent:", message);
 
     return res.json({
