@@ -6,6 +6,7 @@ import {
   sortByTrees,
   getAllNumbers,
   downloadAIcallsBatch,
+
 } from "../controller/aiBot.controller.js";
 
 const router = express.Router();
@@ -16,6 +17,7 @@ router.get("/download", downloadAIcallsBatch); // Assuming this is for downloadi
 router.put("/toggle-call-status", BotCallAddedStatus);
 router.get("/sort-by-trees", sortByTrees);
 router.get("/get-numbers", getAllNumbers);
+
 
 export default router;
  
