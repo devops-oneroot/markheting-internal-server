@@ -11,7 +11,7 @@ import ticketRoutes from "./routes/ticket.route.js";
 import ivrRoute from "./routes/ivr.route.js";
 import adminRoutes from "./routes/admin.route.js";
 import aiBotsRoutes from "./routes/aiBotCalls.route.js";
-import aiBotsDataRoutes from "./routes/aiBotsData.route.js"
+import aiBotsDataRoutes from "./routes/aibotsData.route.js"
 import { createUserAndSendFlow, sendUpdateFlow } from "./whatsapp.js";
 import { format } from "fast-csv";
 import { verifyMiddlewareToken } from "./middleware/auth.js";
