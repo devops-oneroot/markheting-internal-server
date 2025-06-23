@@ -11,6 +11,8 @@ import ticketRoutes from "./routes/ticket.route.js";
 import ivrRoute from "./routes/ivr.route.js";
 import adminRoutes from "./routes/admin.route.js";
 import aiBotsRoutes from "./routes/aiBotCalls.route.js";
+import fieldTicketRoutes from "./routes/fieldTicket.route.js";
+import aiBotsDataRoutes from "./routes/aibotsData.route.js";
 import { createUserAndSendFlow, sendUpdateFlow } from "./whatsapp.js";
 import { format } from "fast-csv";
 import { verifyMiddlewareToken } from "./middleware/auth.js";
@@ -35,6 +37,8 @@ async function startServer() {
     app.use("/ticket", verifyMiddlewareToken, ticketRoutes);
     app.use("/admin", verifyMiddlewareToken, adminRoutes);
     app.use("/aibot", aiBotsRoutes);
+    app.use("/field-ticket", fieldTicketRoutes);
+    app.use("/aibotData", aiBotsDataRoutes);
 
     app.get("/", (req, res) => {
       res.send("Welcome to market dashboard");
