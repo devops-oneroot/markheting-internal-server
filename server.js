@@ -11,11 +11,12 @@ import ticketRoutes from "./routes/ticket.route.js";
 import ivrRoute from "./routes/ivr.route.js";
 import adminRoutes from "./routes/admin.route.js";
 import aiBotsRoutes from "./routes/aiBotCalls.route.js";
-import aiBotsDataRoutes from "./routes/aibotsData.route.js"
+import fieldTicketRoutes from "./routes/fieldTicket.route.js";
+import aiBotsDataRoutes from "./routes/aibotsData.route.js";
+import socialMediaRoutes from "./routes/socialMedia.route.js";
 import { createUserAndSendFlow, sendUpdateFlow } from "./whatsapp.js";
 import { format } from "fast-csv";
 import { verifyMiddlewareToken } from "./middleware/auth.js";
-
 
 dotenv.config();
 const PORT = process.env.PORT || 3003;
@@ -37,7 +38,9 @@ async function startServer() {
     app.use("/ticket", verifyMiddlewareToken, ticketRoutes);
     app.use("/admin", verifyMiddlewareToken, adminRoutes);
     app.use("/aibot", aiBotsRoutes);
-    app.use("/aibotData",aiBotsDataRoutes);
+    app.use("/field-ticket", fieldTicketRoutes);
+    app.use("/aibotData", aiBotsDataRoutes);
+    app.use("/social-media", socialMediaRoutes);
 
     app.get("/", (req, res) => {
       res.send("Welcome to market dashboard");
@@ -57,7 +60,9 @@ async function startServer() {
     // NEW APIs for village, hobli, taluk, district
     app.get("/villages", async (req, res) => {
       try {
-        const villages = await User.distinct("village", { village: { $nin: [null, ""] } });
+        const villages = await User.distinct("village", {
+          village: { $nin: [null, ""] },
+        });
         res.json(villages.filter(Boolean).sort());
       } catch (err) {
         console.error("Error fetching villages:", err.message);
@@ -67,7 +72,9 @@ async function startServer() {
 
     app.get("/hoblis", async (req, res) => {
       try {
-        const hoblis = await User.distinct("hobli", { hobli: { $nin: [null, ""] } });
+        const hoblis = await User.distinct("hobli", {
+          hobli: { $nin: [null, ""] },
+        });
         res.json(hoblis.filter(Boolean).sort());
       } catch (err) {
         console.error("Error fetching hoblis:", err.message);
@@ -77,7 +84,9 @@ async function startServer() {
 
     app.get("/taluks", async (req, res) => {
       try {
-        const taluks = await User.distinct("taluk", { taluk: { $nin: [null, ""] } });
+        const taluks = await User.distinct("taluk", {
+          taluk: { $nin: [null, ""] },
+        });
         res.json(taluks.filter(Boolean).sort());
       } catch (err) {
         console.error("Error fetching taluks:", err.message);
@@ -87,7 +96,9 @@ async function startServer() {
 
     app.get("/districts", async (req, res) => {
       try {
-        const districts = await User.distinct("district", { district: { $nin: [null, ""] } });
+        const districts = await User.distinct("district", {
+          district: { $nin: [null, ""] },
+        });
         res.json(districts.filter(Boolean).sort());
       } catch (err) {
         console.error("Error fetching districts:", err.message);
@@ -109,7 +120,7 @@ async function startServer() {
           hobli,
           village,
           taluk,
-          district
+          district,
         } = req.query;
 
         const limit = 50;
@@ -125,7 +136,7 @@ async function startServer() {
           hobli,
           village,
           taluk,
-          district
+          district,
         });
 
         const [users, totalUsers] = await Promise.all([
@@ -158,7 +169,7 @@ async function startServer() {
           taluk,
           district,
           from,
-          to
+          to,
         } = req.query;
 
         let startIdx = Math.max(parseInt(from, 10) - 1 || 0, 0);
@@ -173,11 +184,13 @@ async function startServer() {
           hobli,
           village,
           taluk,
-          district
+          district,
         });
 
         const fields = selectCsvFields(columns);
-        const filename = `users_${tag || "all"}_${category || "all"}_${Date.now()}.csv`;
+        const filename = `users_${tag || "all"}_${
+          category || "all"
+        }_${Date.now()}.csv`;
 
         res.setHeader("Content-Type", "text/csv");
         res.setHeader(
@@ -241,7 +254,7 @@ function buildUserQuery({
   hobli,
   village,
   taluk,
-  district
+  district,
 }) {
   const query = {};
 
@@ -276,10 +289,26 @@ function buildUserQuery({
 
 function selectCsvFields(columns) {
   const allowed = [
-    "name", "gov_farmer_id", "age", "pincode", "hobli", "farmer_category",
-    "village", "taluk", "district", "number", "identity", "tag",
-    "consent", "consent_date", "onboarded_date", "createdAt", "updatedAt",
-    "downloaded", "downloaded_date", "coordinates"
+    "name",
+    "gov_farmer_id",
+    "age",
+    "pincode",
+    "hobli",
+    "farmer_category",
+    "village",
+    "taluk",
+    "district",
+    "number",
+    "identity",
+    "tag",
+    "consent",
+    "consent_date",
+    "onboarded_date",
+    "createdAt",
+    "updatedAt",
+    "downloaded",
+    "downloaded_date",
+    "coordinates",
   ];
   if (!columns) return allowed;
   const requested = columns.split(",");
