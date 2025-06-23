@@ -13,6 +13,7 @@ export const createTicket = async (req, res) => {
       cropName,
       farmernumber,
       cropId,
+      dueDate,
       priority = "MEDIUM",
       status = "pending",
     } = req.body;
@@ -44,6 +45,7 @@ export const createTicket = async (req, res) => {
       cropId,
       priority,
       status,
+      dueDate,
     });
 
     return res.status(201).json(ticket);
@@ -55,14 +57,70 @@ export const createTicket = async (req, res) => {
 
 export const getOpenTicketsByFieldGuy = async (req, res) => {
   try {
-    const { fieldId } = req.params;
-
+    const { fielduserId } = req.params;
     const doneStatuses = ["not-ready", "farm-didnt-pick", "submitted"];
 
-    const tickets = await FieldTicket.find({
-      field_guyId: fieldId,
-      status: { $nin: doneStatuses },
-    }).sort({ createdAt: -1 });
+    // Build “today” bounds
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(todayStart);
+    todayEnd.setDate(todayEnd.getDate() + 1);
+
+    // Define the priority ordering we want
+    const priorityOrder = ["ASAP", "HIGH", "MEDIUM", "LOW"];
+
+    const tickets = await FieldTicket.aggregate([
+      // 1) match only open tickets for this field‐guy
+      {
+        $match: {
+          field_guyId: fieldId,
+          status: { $nin: doneStatuses },
+        },
+      },
+
+      // 2) compute numeric ranks for priority & due‐status
+      {
+        $addFields: {
+          priorityRank: { $indexOfArray: [priorityOrder, "$priority"] },
+          dueRank: {
+            $switch: {
+              branches: [
+                {
+                  case: { $lt: ["$dueDate", todayStart] },
+                  then: 0,
+                },
+                {
+                  case: {
+                    $and: [
+                      { $gte: ["$dueDate", todayStart] },
+                      { $lt: ["$dueDate", todayEnd] },
+                    ],
+                  },
+                  then: 1,
+                },
+              ],
+              default: 2,
+            },
+          },
+        },
+      },
+
+      {
+        $sort: {
+          priorityRank: 1,
+          dueRank: 1,
+          dueDate: 1,
+          createdAt: -1,
+        },
+      },
+
+      {
+        $project: {
+          priorityRank: 0,
+          dueRank: 0,
+        },
+      },
+    ]);
 
     return res.status(200).json(tickets);
   } catch (err) {
@@ -73,8 +131,7 @@ export const getOpenTicketsByFieldGuy = async (req, res) => {
 
 export const updateTicketStatus = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { status } = req.body;
+    const { id, status } = req.body;
 
     if (!status) {
       return res

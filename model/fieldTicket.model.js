@@ -62,6 +62,9 @@ const fieldTicketSchema = new mongoose.Schema(
       default: "MEDIUM",
       required: true,
     },
+    dueDate: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
