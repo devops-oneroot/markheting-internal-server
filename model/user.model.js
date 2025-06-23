@@ -11,7 +11,11 @@ const userSchema = new mongoose.Schema(
     taluk: { type: String },
     district: { type: String },
     number: { type: String, required: true, unique: true },
-    identity: { type: String, enum: ["Buyer", "Farmer"], required: true },
+    identity: {
+      type: String,
+      enum: ["Harvester", "Farmer", "Loader"],
+      required: true,
+    },
     tag: { type: String },
     consent: { type: String, default: null },
     consent_date: { type: String, default: null },

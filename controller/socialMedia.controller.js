@@ -1,28 +1,34 @@
-import SocialMediaMarketing from "../model/socail_marketing.model.js";
+import User from "../model/user.model.js";
 import webhookQueue from "../queues/webhookQueues.js";
 
 export const facebookbotWebhook = async (req, res) => {
   webhookQueue
     .add(async () => {
       const { label } = req.params;
-      const { id, full_name, phone } = req.body;
-      console.log(id, full_name, phone, label);
+      const { full_name, phone, custom_fields } = req.body;
+
+      const identityField = custom_fields.find(
+        (item) => item.name === "Identity"
+      );
+      if (identityField) {
+        console.log("🔍 Identity field value:", identityField.value);
+      }
 
       try {
-        const existingUser = await SocialMediaMarketing.findOne({
-          contact_id: id,
+        const existingUser = await User.findOne({
+          number: phone,
         });
+
         if (existingUser) {
           console.log("ℹ️ User already exists");
           return;
         }
 
-        await SocialMediaMarketing.create({
-          contact_id: id,
-          contactedAt: new Date(),
-          label,
+        await User.create({
+          number: phone,
           name: full_name,
-          phone,
+          identity: identityField.value,
+          tag: label,
         });
 
         console.log("✅ User created from webhook");
