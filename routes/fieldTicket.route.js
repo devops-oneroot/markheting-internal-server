@@ -9,6 +9,6 @@ const router = express.Router();
 
 router.post("/", createTicket);
 router.get("/:fielduserId", getOpenTicketsByFieldGuy);
-router.post("/", updateTicketStatus);
+router.put("/", updateTicketStatus);
 
 export default router;

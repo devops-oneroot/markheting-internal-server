@@ -73,7 +73,7 @@ export const getOpenTicketsByFieldGuy = async (req, res) => {
       // 1) match only open tickets for this field‐guy
       {
         $match: {
-          field_guyId: fieldId,
+          field_guyId: fielduserId,
           status: { $nin: doneStatuses },
         },
       },
