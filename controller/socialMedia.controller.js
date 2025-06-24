@@ -5,7 +5,7 @@ export const facebookbotWebhook = async (req, res) => {
   webhookQueue
     .add(async () => {
       const { label } = req.params;
-      const { full_name, phone, custom_fields } = req.body;
+      const { first_name, phone, custom_fields } = req.body;
 
       const identityField = custom_fields.find(
         (item) => item.name === "Identity"
@@ -26,7 +26,7 @@ export const facebookbotWebhook = async (req, res) => {
 
         await User.create({
           number: phone,
-          name: full_name,
+          name: first_name,
           identity: identityField.value,
           tag: label,
         });
