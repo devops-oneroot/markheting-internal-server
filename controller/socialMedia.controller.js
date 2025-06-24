@@ -29,6 +29,8 @@ export const facebookbotWebhook = async (req, res) => {
           name: first_name,
           identity: identityField.value,
           tag: label,
+          consent: "yes",
+          consent_date: Date.name(),
         });
 
         console.log("✅ User created from webhook");
