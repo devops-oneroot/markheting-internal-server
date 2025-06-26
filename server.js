@@ -114,6 +114,7 @@ async function startServer() {
           tag,
           consent,
           downloaded,
+          identity,
           date,
           search,
           category,
@@ -126,10 +127,15 @@ async function startServer() {
         const limit = 50;
         const skip = (page - 1) * limit;
 
+        if (identity == "all") {
+          identity = { $in: ["Harvester", "Farmer", "Loader", "Unknown"] };
+        }
+
         const query = buildUserQuery({
           tag,
           consent,
           downloaded,
+          identity,
           date,
           search,
           category,
