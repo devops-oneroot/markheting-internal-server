@@ -4,7 +4,7 @@ const userSchema = new mongoose.Schema(
   {
     name: { type: String },
     gov_farmer_id: { type: String, default: null },
-    age: { type: Number, default: null }, // Corrected type for numeric data
+    age: { type: Number, default: null },
     hobli: { type: String, default: null },
     farmer_category: { type: String, default: null },
     village: { type: String },
@@ -13,7 +13,7 @@ const userSchema = new mongoose.Schema(
     number: { type: String, required: true, unique: true },
     identity: {
       type: String,
-      enum: ["Harvester", "Farmer", "Loader"],
+      enum: ["Harvester", "Farmer", "Loader", "Unknown"],
       required: true,
     },
     tag: { type: String },
