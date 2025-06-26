@@ -2,43 +2,95 @@ import User from "../model/user.model.js";
 import webhookQueue from "../queues/webhookQueues.js";
 
 export const facebookbotWebhook = async (req, res) => {
-  webhookQueue
-    .add(async () => {
-      const { label } = req.params;
-      const { first_name, phone, custom_fields } = req.body;
+  res.status(200).send("OK");
 
-      const identityField = custom_fields.find(
-        (item) => item.name === "Identity"
-      );
-      if (identityField) {
-        console.log("🔍 Identity field value:", identityField.value);
+  webhookQueue.add(async () => {
+    const { label } = req.params;
+    const { first_name, phone, custom_fields } = req.body;
+
+    const identityField = custom_fields.find(
+      (item) => item.name === "Identity"
+    );
+
+    if (identityField) {
+      console.log("🔍 Identity field value:", identityField.value);
+    }
+
+    try {
+      const existingUser = await User.findOne({ number: phone });
+
+      if (existingUser) {
+        existingUser.identity = identity;
+        existingUser.name = first_name;
+        existingUser.tag = label;
+        await existingUser.save();
+        console.log("🔄 Existing user updated:", phone);
+        return;
       }
 
-      try {
-        const existingUser = await User.findOne({
-          number: phone,
-        });
+      await User.create({
+        number: phone,
+        name: first_name,
+        identity: identityField?.value,
+        consent: "yes",
+        consent_date: Date.now(),
+      });
 
-        if (existingUser) {
-          console.log("ℹ️ User already exists");
-          return;
+      console.log("✅ User created from webhook");
+    } catch (error) {
+      console.error("❌ Error in facebookbotWebhook:", error.message);
+    }
+  });
+};
+
+export const contactCreatedWebhook = async (req, res) => {
+  try {
+    const { phone } = req.body;
+    const { label } = req.params;
+
+    if (!phone) {
+      console.warn("⚠️ Phone not provided in webhook payload");
+      return res
+        .status(400)
+        .json({ success: false, message: "Phone is required" });
+    }
+
+    res.status(200).json({ success: true, message: "Webhook received" });
+
+    webhookQueue
+      .add(async () => {
+        try {
+          console.log("📥 Processing contact from webhook:", phone);
+
+          const existingUser = await User.findOne({ number: phone });
+
+          if (existingUser) {
+            console.log("ℹ️ User already exists:", phone);
+            return;
+          }
+
+          await User.create({
+            number: phone,
+            identity: "Unknown",
+            tag: label,
+            consent: "yes",
+            consent_date: Date.now(),
+          });
+
+          console.log("✅ Contact created from webhook");
+        } catch (error) {
+          console.error("❌ Error processing contact webhook:", error.message);
         }
-
-        await User.create({
-          number: phone,
-          name: first_name,
-          identity: identityField.value,
-          tag: label,
-          consent: "yes",
-          consent_date: Date.now(),
-        });
-
-        console.log("✅ User created from webhook");
-      } catch (error) {
-        console.error("❌ Error in facebookbotWebhook:", error.message);
-      }
-    })
-    .catch((err) => {
-      console.error("❌ Queue error:", err);
-    });
+      })
+      .catch((err) => {
+        console.error("❌ Queue error in contactCreatedWebhook:", err);
+      });
+  } catch (error) {
+    console.error("❌ Error in contactCreatedWebhook (outer):", error.message);
+    if (!res.headersSent) {
+      return res
+        .status(500)
+        .json({ success: false, message: "Internal server error" });
+    }
+  }
 };
