@@ -127,23 +127,38 @@ async function startServer() {
         const limit = 50;
         const skip = (page - 1) * limit;
 
-        if (identity == "all") {
-          identity = { $in: ["Harvester", "Farmer", "Loader", "Unknown"] };
-        }
+        console.log("Fetching users with query:", { identity });
 
-        const query = buildUserQuery({
-          tag,
-          consent,
-          downloaded,
-          identity,
-          date,
-          search,
-          category,
-          hobli,
-          village,
-          taluk,
-          district,
-        });
+        let query = {};
+
+        if (identity) {
+          query = buildUserQuery({
+            tag,
+            consent,
+            downloaded,
+            date,
+            search,
+            category,
+            identity,
+            hobli,
+            village,
+            taluk,
+            district,
+          });
+        } else {
+          query = buildUserQuery({
+            tag,
+            consent,
+            downloaded,
+            date,
+            search,
+            category,
+            hobli,
+            village,
+            taluk,
+            district,
+          });
+        }
 
         const [users, totalUsers] = await Promise.all([
           User.find(query).skip(skip).limit(limit),
@@ -259,12 +274,14 @@ function buildUserQuery({
   category,
   hobli,
   village,
+  identity,
   taluk,
   district,
 }) {
   const query = {};
 
   if (tag) query.tag = tag;
+  if (identity) query.identity = identity;
   if (consent)
     query.consent = consent === "yes" ? "yes" : { $in: ["", null, "no"] };
   if (downloaded === "yes") query.downloaded = true;
