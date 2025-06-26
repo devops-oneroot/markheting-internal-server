@@ -20,7 +20,7 @@ export const facebookbotWebhook = async (req, res) => {
       const existingUser = await User.findOne({ number: phone });
 
       if (existingUser) {
-        existingUser.identity = identity;
+        existingUser.identity = identityField?.value;
         existingUser.name = first_name;
         existingUser.tag = label;
         await existingUser.save();
