@@ -33,7 +33,7 @@ export const facebookbotWebhook = async (req, res) => {
         name: first_name,
         identity: identityField?.value,
         consent: "yes",
-        consent_date: Date.now(),
+        consent_date: new Date(),
       });
 
       console.log("✅ User created from webhook");
@@ -74,7 +74,7 @@ export const contactCreatedWebhook = async (req, res) => {
             identity: "Unknown",
             tag: label,
             consent: "yes",
-            consent_date: Date.now(),
+            consent_date: new Date(),
           });
 
           console.log("✅ Contact created from webhook");
