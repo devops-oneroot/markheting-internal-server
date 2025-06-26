@@ -18,7 +18,7 @@ const userSchema = new mongoose.Schema(
     },
     tag: { type: String },
     consent: { type: String, default: null },
-    consent_date: { type: String, default: null },
+    consent_date: { type: Date, default: null },
     downloaded: { type: Boolean, default: null },
     downloaded_date: { type: String, default: null },
     onboarded_date: { type: String, default: null },
