@@ -17,19 +17,16 @@ import socialMediaRoutes from "./routes/socialMedia.route.js";
 import { createUserAndSendFlow, sendUpdateFlow } from "./whatsapp.js";
 import { format } from "fast-csv";
 import { verifyMiddlewareToken } from "./middleware/auth.js";
-
 dotenv.config();
 const PORT = process.env.PORT || 3003;
-
 async function startServer() {
   try {
     await connectDB();
     const app = express();
-
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
     app.use(cors());
-
+    // Routes
     app.use(userRoute);
     app.use(plivoRoute);
     app.use(plivoReportRoute);
@@ -41,72 +38,46 @@ async function startServer() {
     app.use("/field-ticket", fieldTicketRoutes);
     app.use("/aibotData", aiBotsDataRoutes);
     app.use("/social-media", socialMediaRoutes);
-
+    // Base route
     app.get("/", (req, res) => {
       res.send("Welcome to market dashboard");
     });
-
-    // Existing tags API
+    // === TAG FILTERING FOR MULTIPLE TAGS ===
     app.get("/tags", async (req, res) => {
       try {
-        const tags = await User.distinct("tag", { tag: { $nin: [null, ""] } });
-        res.json(tags.filter(Boolean));
+        const users = await User.find(
+          { tag: { $exists: true, $ne: null } },
+          "tag"
+        );
+        const tagSet = new Set();
+        users.forEach((user) => {
+          const tags = Array.isArray(user.tag) ? user.tag : [user.tag];
+          tags.forEach((tag) => {
+            if (tag && tag.trim() !== "") tagSet.add(tag.trim());
+          });
+        });
+        res.json([...tagSet]);
       } catch (err) {
         console.error("Error fetching tags:", err.message);
         res.status(500).json({ error: "Internal Server Error" });
       }
     });
-
-    // NEW APIs for village, hobli, taluk, district
-    app.get("/villages", async (req, res) => {
-      try {
-        const villages = await User.distinct("village", {
-          village: { $nin: [null, ""] },
-        });
-        res.json(villages.filter(Boolean).sort());
-      } catch (err) {
-        console.error("Error fetching villages:", err.message);
-        res.status(500).json({ error: "Internal Server Error" });
-      }
+    // === VILLAGE, HOBLI, TALUK, DISTRICT ===
+    const distinctFields = ["village", "hobli", "taluk", "district"];
+    distinctFields.forEach((field) => {
+      app.get(`/${field}s`, async (req, res) => {
+        try {
+          const values = await User.distinct(field, {
+            [field]: { $nin: [null, ""] },
+          });
+          res.json(values.filter(Boolean).sort());
+        } catch (err) {
+          console.error(`Error fetching ${field}s:`, err.message);
+          res.status(500).json({ error: "Internal Server Error" });
+        }
+      });
     });
-
-    app.get("/hoblis", async (req, res) => {
-      try {
-        const hoblis = await User.distinct("hobli", {
-          hobli: { $nin: [null, ""] },
-        });
-        res.json(hoblis.filter(Boolean).sort());
-      } catch (err) {
-        console.error("Error fetching hoblis:", err.message);
-        res.status(500).json({ error: "Internal Server Error" });
-      }
-    });
-
-    app.get("/taluks", async (req, res) => {
-      try {
-        const taluks = await User.distinct("taluk", {
-          taluk: { $nin: [null, ""] },
-        });
-        res.json(taluks.filter(Boolean).sort());
-      } catch (err) {
-        console.error("Error fetching taluks:", err.message);
-        res.status(500).json({ error: "Internal Server Error" });
-      }
-    });
-
-    app.get("/districts", async (req, res) => {
-      try {
-        const districts = await User.distinct("district", {
-          district: { $nin: [null, ""] },
-        });
-        res.json(districts.filter(Boolean).sort());
-      } catch (err) {
-        console.error("Error fetching districts:", err.message);
-        res.status(500).json({ error: "Internal Server Error" });
-      }
-    });
-
-    // Other existing routes (users, download-users, webhooks)
+    // === USERS ===
     app.get("/users", async (req, res) => {
       try {
         const {
@@ -123,48 +94,25 @@ async function startServer() {
           taluk,
           district,
         } = req.query;
-
         const limit = 50;
         const skip = (page - 1) * limit;
-
-        console.log("Fetching users with query:", { identity });
-
-        let query = {};
-
-        if (identity) {
-          query = buildUserQuery({
-            tag,
-            consent,
-            downloaded,
-            date,
-            search,
-            category,
-            identity,
-            hobli,
-            village,
-            taluk,
-            district,
-          });
-        } else {
-          query = buildUserQuery({
-            tag,
-            consent,
-            downloaded,
-            date,
-            search,
-            category,
-            hobli,
-            village,
-            taluk,
-            district,
-          });
-        }
-
+        const query = buildUserQuery({
+          tag,
+          consent,
+          downloaded,
+          date,
+          search,
+          category,
+          identity,
+          hobli,
+          village,
+          taluk,
+          district,
+        });
         const [users, totalUsers] = await Promise.all([
           User.find(query).skip(skip).limit(limit),
           User.countDocuments(query),
         ]);
-
         res.json({
           users,
           totalPages: Math.ceil(totalUsers / limit),
@@ -175,7 +123,7 @@ async function startServer() {
         res.status(500).json({ error: "Internal Server Error" });
       }
     });
-
+    // === DOWNLOAD USERS CSV ===
     app.get("/download-users", async (req, res) => {
       try {
         const {
@@ -192,10 +140,8 @@ async function startServer() {
           from,
           to,
         } = req.query;
-
         let startIdx = Math.max(parseInt(from, 10) - 1 || 0, 0);
         let count = Math.max(parseInt(to, 10) - startIdx || 50, 1);
-
         const query = buildUserQuery({
           tag,
           consent,
@@ -207,31 +153,26 @@ async function startServer() {
           taluk,
           district,
         });
-
         const fields = selectCsvFields(columns);
         const filename = `users_${tag || "all"}_${
           category || "all"
         }_${Date.now()}.csv`;
-
         res.setHeader("Content-Type", "text/csv");
         res.setHeader(
           "Content-Disposition",
           `attachment; filename="${filename}"`
         );
-
         const cursor = User.find(query)
           .sort({ _id: 1 })
           .skip(startIdx)
           .limit(count)
           .lean()
           .cursor();
-
         const csvStream = format({ headers: fields, writeHeaders: true });
         csvStream.pipe(res).on("error", (err) => {
           console.error("CSV stream error:", err);
           if (!res.headersSent) res.status(500).end();
         });
-
         cursor.on("data", (doc) => {
           const row = fields.reduce((acc, key) => {
             acc[key] = doc[key];
@@ -239,7 +180,6 @@ async function startServer() {
           }, {});
           csvStream.write(row);
         });
-
         cursor.on("end", () => csvStream.end());
         cursor.on("error", (err) => {
           console.error("Mongo cursor error:", err);
@@ -255,12 +195,13 @@ async function startServer() {
 
     app.get("/webhook", handleWebhook);
     app.get("/update-webhook", handleUpdateWebhook);
-
     app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
+      console.log(
+        `:white_check_mark: Server running on http://localhost:${PORT}`
+      );
     });
   } catch (err) {
-    console.error("Failed to start server:", err);
+    console.error(":x: Failed to start server:", err);
     process.exit(1);
   }
 }
@@ -279,8 +220,15 @@ function buildUserQuery({
   district,
 }) {
   const query = {};
-
-  if (tag) query.tag = tag;
+  if (tag) {
+    const tagsArray = tag
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (tagsArray.length > 0) {
+      query.tag = { $in: tagsArray };
+    }
+  }
   if (identity) query.identity = identity;
   if (consent)
     query.consent = consent === "yes" ? "yes" : { $in: ["", null, "no"] };
@@ -306,7 +254,6 @@ function buildUserQuery({
   if (village) query.village = { $regex: village, $options: "i" };
   if (taluk) query.taluk = { $regex: taluk, $options: "i" };
   if (district) query.district = { $regex: district, $options: "i" };
-
   return query;
 }
 
@@ -345,43 +292,34 @@ async function handleWebhook(req, res) {
     if (callFrom.startsWith("0")) callFrom = callFrom.slice(1);
     const phone = `91${callFrom}`;
     const flowType = type === "call link" ? "call link" : "broadcast";
-
     setImmediate(() => {
       createUserAndSendFlow({ phone, type: flowType })
         .then((data) =>
-          console.log(`[${new Date().toISOString()}] Flow succeeded:`, data)
+          console.log(`[${new Date().toISOString()}] Flow success`, data)
         )
         .catch((err) =>
-          console.error(`[${new Date().toISOString()}] Flow error:`, err)
+          console.error(`[${new Date().toISOString()}] Flow error`, err)
         );
     });
-
     res.status(202).json({ message: "Webhook received, processing started" });
   } catch (err) {
     console.error("Webhook handler error:", err);
     res.status(500).send("Internal Server Error");
   }
 }
-
 async function handleUpdateWebhook(req, res) {
   try {
     let { CallFrom: callFrom } = req.query;
     if (!callFrom) return res.status(400).send("Missing CallFrom");
-
-    console.log("Received CallFrom:", callFrom);
-
     callFrom = callFrom.replace(/^0+/, "").trim().replace(/^"|"$/g, "");
     const phone = `91${callFrom}`;
-
-    console.log("Sanitized phone number:", phone);
-
     setImmediate(() => {
       sendUpdateFlow({ phone })
         .then((data) =>
-          console.log(`[${new Date().toISOString()}] Flow succeeded:`, data)
+          console.log(`[${new Date().toISOString()}] Update flow success`, data)
         )
         .catch((err) =>
-          console.error(`[${new Date().toISOString()}] Flow error:`, err)
+          console.error(`[${new Date().toISOString()}] Update flow error`, err)
         );
     });
     res.status(202).json({ message: "Webhook received, processing started" });
