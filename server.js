@@ -205,7 +205,6 @@ async function startServer() {
     process.exit(1);
   }
 }
-
 function buildUserQuery({
   tag,
   consent,
@@ -220,6 +219,7 @@ function buildUserQuery({
   district,
 }) {
   const query = {};
+
   if (tag) {
     const tagsArray = tag
       .split(",")
@@ -229,19 +229,34 @@ function buildUserQuery({
       query.tag = { $in: tagsArray };
     }
   }
+
   if (identity) query.identity = identity;
+
   if (consent)
     query.consent = consent === "yes" ? "yes" : { $in: ["", null, "no"] };
+
   if (downloaded === "yes") query.downloaded = true;
   else if (downloaded === "no") query.downloaded = false;
   else if (downloaded === "null") query.downloaded = null;
-  if (date) query.consent_date = { $regex: `^${date}` };
+
+  // ✅ Proper date filtering using createdAt
+  if (date) {
+    const day = new Date(date);
+    const nextDay = new Date(day);
+    nextDay.setDate(day.getDate() + 1);
+    query.createdAt = {
+      $gte: day,
+      $lt: nextDay,
+    };
+  }
+
   if (search) {
     query.$or = [
       { name: { $regex: search, $options: "i" } },
       { number: { $regex: search, $options: "i" } },
     ];
   }
+
   if (category && category !== "all") {
     const categoryMap = {
       "Margin+Farmer": "Margin Farmer",
@@ -250,10 +265,12 @@ function buildUserQuery({
     };
     query.farmer_category = categoryMap[category] || category;
   }
+
   if (hobli) query.hobli = { $regex: hobli, $options: "i" };
   if (village) query.village = { $regex: village, $options: "i" };
   if (taluk) query.taluk = { $regex: taluk, $options: "i" };
   if (district) query.district = { $regex: district, $options: "i" };
+
   return query;
 }
 
