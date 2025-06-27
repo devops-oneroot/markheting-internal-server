@@ -331,9 +331,7 @@ export const updateDatabase = async (req, res) => {
     console.log("Starting database update process…");
 
     // 1) Fetch users from the external API
-    const apiRes = await fetch(
-      "https://markhet-internal.onrender.com/users/farmer"
-    );
+    const apiRes = await fetch("https://markhet-internal.onrender.com/users");
     if (!apiRes.ok) {
       throw new Error(`API fetch failed with status ${apiRes.status}`);
     }
@@ -380,18 +378,23 @@ export const updateDatabase = async (req, res) => {
 
       const hasToken =
         apiUser.fcmToken && !apiUser.fcmToken.startsWith("dummy");
+      const updateSet = {
+        downloaded: hasToken,
+        downloaded_date: hasToken ? apiUser.createdAt : null,
+        consent: "yes",
+        onboarded_date: dbUser.onboarded_date ?? apiUser.createdAt,
+        consent_date: dbUser.consent_date ?? apiUser.createdAt,
+      };
+
+      if (apiUser.identity && dbUser.identity !== apiUser.identity) {
+        updateSet.identity =
+          apiUser.identity === "FARMER" ? "Farmer" : "Harvester";
+      }
+
       updateOps.push({
         updateOne: {
           filter: { number: dbUser.number },
-          update: {
-            $set: {
-              downloaded: hasToken,
-              downloaded_date: hasToken ? apiUser.createdAt : null,
-              consent: "yes",
-              onboarded_date: dbUser.onboarded_date ?? apiUser.createdAt,
-              consent_date: dbUser.consent_date ?? apiUser.createdAt,
-            },
-          },
+          update: { $set: updateSet },
         },
       });
 
@@ -430,8 +433,10 @@ export const updateDatabase = async (req, res) => {
         taluk: apiUser.taluk,
         district: apiUser.district,
         village: apiUser.village,
-        identity: "Farmer",
-        tag: "Markhet_api",
+        identity: apiUser.identity == "FARMER" ? "Farmer" : "Harvester",
+        tag: `${
+          apiUser.identity == "FARMER" ? "Farmer" : "Harvester"
+        } Markhet_api`,
       });
 
       if (insertBatch.length >= BATCH_SIZE) {
