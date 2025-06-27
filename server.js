@@ -42,26 +42,31 @@ async function startServer() {
     app.get("/", (req, res) => {
       res.send("Welcome to market dashboard");
     });
+
     // === TAG FILTERING FOR MULTIPLE TAGS ===
     app.get("/tags", async (req, res) => {
       try {
-        const users = await User.find(
-          { tag: { $exists: true, $ne: null } },
-          "tag"
-        );
-        const tagSet = new Set();
-        users.forEach((user) => {
-          const tags = Array.isArray(user.tag) ? user.tag : [user.tag];
-          tags.forEach((tag) => {
-            if (tag && tag.trim() !== "") tagSet.add(tag.trim());
-          });
+        // Only fetch the distinct tag values directly from MongoDB
+        const tags = await User.distinct("tag", {
+          tag: { $exists: true, $ne: null },
         });
-        res.json([...tagSet]);
+
+        // Flatten and clean up if `tag` is stored as arrays
+        const flatTags = tags
+          .flatMap((tag) => (Array.isArray(tag) ? tag : [tag]))
+          .map((tag) => tag.trim())
+          .filter((tag) => tag !== "");
+
+        // Remove duplicates
+        const uniqueTags = [...new Set(flatTags)];
+
+        res.json(uniqueTags);
       } catch (err) {
         console.error("Error fetching tags:", err.message);
         res.status(500).json({ error: "Internal Server Error" });
       }
     });
+
     // === VILLAGE, HOBLI, TALUK, DISTRICT ===
     const distinctFields = ["village", "hobli", "taluk", "district"];
     distinctFields.forEach((field) => {
