@@ -25,6 +25,8 @@ export const facebookbotWebhook = async (req, res) => {
         existingUser.identity = identityField?.value;
         existingUser.name = first_name;
         existingUser.tag = label;
+        existingUser.consent = "yes";
+        existingUser.consent_date = existingUser.consent_date || new Date();
         await existingUser.save();
         console.log("🔄 Existing user updated:", phone);
         return;
