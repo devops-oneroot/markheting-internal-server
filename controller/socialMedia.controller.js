@@ -6,7 +6,7 @@ export const facebookbotWebhook = async (req, res) => {
 
   webhookQueue.add(async () => {
     const { label } = req.params;
-    const { first_name, phone, custom_fields } = req.body;
+    let { first_name, phone, custom_fields } = req.body;
 
     const identityField = custom_fields.find(
       (item) => item.name === "Identity"
@@ -49,7 +49,7 @@ export const facebookbotWebhook = async (req, res) => {
 
 export const contactCreatedWebhook = async (req, res) => {
   try {
-    const { phone } = req.body;
+    let { phone } = req.body;
     const { label } = req.params;
 
     if (!phone) {
