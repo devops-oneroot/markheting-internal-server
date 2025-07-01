@@ -42,26 +42,31 @@ async function startServer() {
     app.get("/", (req, res) => {
       res.send("Welcome to market dashboard");
     });
+
     // === TAG FILTERING FOR MULTIPLE TAGS ===
     app.get("/tags", async (req, res) => {
       try {
-        const users = await User.find(
-          { tag: { $exists: true, $ne: null } },
-          "tag"
-        );
-        const tagSet = new Set();
-        users.forEach((user) => {
-          const tags = Array.isArray(user.tag) ? user.tag : [user.tag];
-          tags.forEach((tag) => {
-            if (tag && tag.trim() !== "") tagSet.add(tag.trim());
-          });
+        // Only fetch the distinct tag values directly from MongoDB
+        const tags = await User.distinct("tag", {
+          tag: { $exists: true, $ne: null },
         });
-        res.json([...tagSet]);
+
+        // Flatten and clean up if `tag` is stored as arrays
+        const flatTags = tags
+          .flatMap((tag) => (Array.isArray(tag) ? tag : [tag]))
+          .map((tag) => tag.trim())
+          .filter((tag) => tag !== "");
+
+        // Remove duplicates
+        const uniqueTags = [...new Set(flatTags)];
+
+        res.json(uniqueTags);
       } catch (err) {
         console.error("Error fetching tags:", err.message);
         res.status(500).json({ error: "Internal Server Error" });
       }
     });
+
     // === VILLAGE, HOBLI, TALUK, DISTRICT ===
     const distinctFields = ["village", "hobli", "taluk", "district"];
     distinctFields.forEach((field) => {
@@ -205,7 +210,6 @@ async function startServer() {
     process.exit(1);
   }
 }
-
 function buildUserQuery({
   tag,
   consent,
@@ -220,6 +224,7 @@ function buildUserQuery({
   district,
 }) {
   const query = {};
+
   if (tag) {
     const tagsArray = tag
       .split(",")
@@ -229,19 +234,34 @@ function buildUserQuery({
       query.tag = { $in: tagsArray };
     }
   }
+
   if (identity) query.identity = identity;
+
   if (consent)
     query.consent = consent === "yes" ? "yes" : { $in: ["", null, "no"] };
+
   if (downloaded === "yes") query.downloaded = true;
   else if (downloaded === "no") query.downloaded = false;
   else if (downloaded === "null") query.downloaded = null;
-  if (date) query.consent_date = { $regex: `^${date}` };
+
+  // ✅ Proper date filtering using createdAt
+  if (date) {
+    const day = new Date(date);
+    const nextDay = new Date(day);
+    nextDay.setDate(day.getDate() + 1);
+    query.createdAt = {
+      $gte: day,
+      $lt: nextDay,
+    };
+  }
+
   if (search) {
     query.$or = [
       { name: { $regex: search, $options: "i" } },
       { number: { $regex: search, $options: "i" } },
     ];
   }
+
   if (category && category !== "all") {
     const categoryMap = {
       "Margin+Farmer": "Margin Farmer",
@@ -250,10 +270,12 @@ function buildUserQuery({
     };
     query.farmer_category = categoryMap[category] || category;
   }
+
   if (hobli) query.hobli = { $regex: hobli, $options: "i" };
   if (village) query.village = { $regex: village, $options: "i" };
   if (taluk) query.taluk = { $regex: taluk, $options: "i" };
   if (district) query.district = { $regex: district, $options: "i" };
+
   return query;
 }
 
