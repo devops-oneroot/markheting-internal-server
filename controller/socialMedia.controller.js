@@ -17,12 +17,16 @@ export const facebookbotWebhook = async (req, res) => {
     }
 
     try {
+      phone = phone.replace(/^(\+91|91)/, "").trim();
+
       const existingUser = await User.findOne({ number: phone });
 
       if (existingUser) {
         existingUser.identity = identityField?.value;
         existingUser.name = first_name;
         existingUser.tag = label;
+        existingUser.consent = "yes";
+        existingUser.consent_date = existingUser.consent_date || new Date();
         await existingUser.save();
         console.log("🔄 Existing user updated:", phone);
         return;
@@ -54,6 +58,9 @@ export const contactCreatedWebhook = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Phone is required" });
     }
+
+    // 🚫 Strip +91 or 91 from the beginning if present
+    phone = phone.replace(/^(\+91|91)/, "").trim();
 
     res.status(200).json({ success: true, message: "Webhook received" });
 
