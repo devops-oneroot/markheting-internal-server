@@ -1,35 +1,39 @@
 // dedupe-users.js
 import mongoose from "mongoose";
-import User from "./model/user.model.js"; // adjust path if needed
+import User from "./model/user.model.js";
 
 const MONGO_URI =
   "mongodb+srv://shahnoor-dev:7204408035pass@dummydash.k215o.mongodb.net/?retryWrites=true&w=majority&appName=dummyDash";
 
-async function normalize(number) {
-  return number.replace(/^\+91/, "").trim();
+// normalize strips any leading '+91' or '91'
+function normalize(number) {
+  const n = String(number).trim();
+  if (n.startsWith("+91")) return n.slice(3).trim();
+  if (n.startsWith("91")) return n.slice(2).trim();
+  return n;
 }
 
-async function mergeAndDelete(dup, base) {
-  // Decide primary vs secondary
-  let primary = base;
-  let secondary = dup;
+async function mergeAndDelete(dup, primary) {
+  // Determine which record to keep
+  let keep = primary;
+  let remove = dup;
 
-  const dupConsentYes = dup.consent === "yes";
-  const baseConsentYes = base.consent === "yes";
+  const dupConsent = dup.consent === "yes";
+  const primConsent = primary.consent === "yes";
 
-  if (dupConsentYes && !baseConsentYes) {
-    primary = dup;
-    secondary = base;
-  } else if (dupConsentYes && baseConsentYes) {
-    // both have consent; keep the one with older date
-    if (dup.consent_date < base.consent_date) {
-      primary = dup;
-      secondary = base;
+  if (dupConsent && !primConsent) {
+    keep = dup;
+    remove = primary;
+  } else if (dupConsent && primConsent) {
+    // both consent: keep the older consent_date
+    if ((dup.consent_date || 0) < (primary.consent_date || 0)) {
+      keep = dup;
+      remove = primary;
     }
   }
 
-  // List of fields to merge if missing on primary
-  const fieldsToMerge = [
+  // Merge missing fields
+  const fields = [
     "name",
     "gov_farmer_id",
     "age",
@@ -38,8 +42,6 @@ async function mergeAndDelete(dup, base) {
     "village",
     "taluk",
     "district",
-    // number: we want primary.number to remain the normalized one
-    // identity, tag, downloaded, downloaded_date, onboarded_date, pincode, coordinates
     "identity",
     "tag",
     "downloaded",
@@ -48,45 +50,41 @@ async function mergeAndDelete(dup, base) {
     "pincode",
     "coordinates",
   ];
-
-  for (const field of fieldsToMerge) {
+  fields.forEach((f) => {
     if (
-      (primary[field] === null ||
-        primary[field] === undefined ||
-        primary[field] === "") &&
-      secondary[field] !== null &&
-      secondary[field] !== undefined &&
-      secondary[field] !== ""
+      (keep[f] === undefined || keep[f] === null || keep[f] === "") &&
+      remove[f] !== undefined &&
+      remove[f] !== null &&
+      remove[f] !== ""
     ) {
-      primary[field] = secondary[field];
+      keep[f] = remove[f];
     }
+  });
+
+  // Combine notes arrays
+  if (Array.isArray(remove.notes) && remove.notes.length) {
+    keep.notes = [...(keep.notes || []), ...remove.notes];
   }
 
-  // Merge notes arrays
-  if (Array.isArray(secondary.notes) && secondary.notes.length) {
-    primary.notes = [...(primary.notes || []), ...secondary.notes];
+  // Ensure consent/date fields are correct
+  if (dupConsent || primConsent) {
+    keep.consent = "yes";
+    keep.consent_date = keep.consent_date || remove.consent_date;
   }
 
-  // Ensure consent/date on primary is the older/more important one
-  if (dupConsentYes && baseConsentYes) {
-    // we already picked primary as the older consent_date holder
-    primary.consent = "yes";
-    primary.consent_date = primary.consent_date; // already correct
-  } else if (dupConsentYes || baseConsentYes) {
-    // one of them had consent yes; primary has that
-    primary.consent = "yes";
-    primary.consent_date = primary.consent_date || secondary.consent_date;
+  // Normalize number on kept record
+  keep.number = normalize(keep.number);
+
+  // Delete the old doc first to avoid duplicate-key on save
+  await User.deleteOne({ _id: remove._id });
+  try {
+    await keep.save();
+    console.log(
+      `⇒ Kept ${keep._id} (num=${keep.number}), removed ${remove._id}`
+    );
+  } catch (err) {
+    console.error("❌ Error saving merged user:", err);
   }
-
-  // Normalize the primary number to no +91
-  primary.number = await normalize(primary.number);
-
-  await primary.save();
-  await User.deleteOne({ _id: secondary._id });
-
-  console.log(
-    `⇒ Kept ${primary._id} (number=${primary.number}), removed ${secondary._id}`
-  );
 }
 
 async function runDedupe() {
@@ -96,22 +94,40 @@ async function runDedupe() {
   });
   console.log("🗄️  Connected to MongoDB");
 
-  const duplicates = await User.find({ number: { $regex: /^\+91/ } });
-  console.log(`🔍 Found ${duplicates.length} users with +91 prefix`);
+  // Find all users whose number starts with +91
+  const duplicates = await User.find({ number: /^\+91/ });
+  console.log(`🔍 Found ${duplicates.length} '+91' users`);
 
   for (const dup of duplicates) {
-    const baseNumber = await normalize(dup.number);
-    const base = await User.findOne({ number: baseNumber });
-    if (!base) {
-      // No base user—just normalize this one’s number instead of deleting
-      dup.number = baseNumber;
-      await dup.save();
-      console.log(`✏️  Normalized standalone user ${dup._id} → ${baseNumber}`);
-      continue;
-    }
+    const normNum = normalize(dup.number);
 
-    // Merge and delete
-    await mergeAndDelete(dup, base);
+    // Look for an existing user without prefix
+    const primary = await User.findOne({ number: normNum });
+    if (primary) {
+      // Merge data and delete duplicate
+      await mergeAndDelete(dup, primary);
+    } else {
+      // No existing base—rename this one
+      dup.number = normNum;
+      try {
+        await dup.save();
+        console.log(`✏️  Renamed standalone ${dup._id} → ${normNum}`);
+      } catch (err) {
+        if (err.code === 11000) {
+          // Duplicate-key: someone else got created—delete this then merge
+          await User.deleteOne({ _id: dup._id });
+          const exist = await User.findOne({ number: normNum });
+          if (exist) {
+            console.log(
+              `⚠️ Race detected, merging ${dup._id} into existing ${exist._id}`
+            );
+            await mergeAndDelete(dup, exist);
+          }
+        } else {
+          console.error("❌ Error saving normalized user:", err);
+        }
+      }
+    }
   }
 
   console.log("✅  Deduplication complete");
