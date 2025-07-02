@@ -128,6 +128,39 @@ async function startServer() {
         res.status(500).json({ error: "Internal Server Error" });
       }
     });
+
+    app.put("/users/update-by-number/:number", async (req, res) => {
+      try {
+        const inputNumber = req.params.number.trim();
+        const updates = { ...req.body };
+
+        // ❗ Remove _id if it's present in the body
+        if ("_id" in updates) delete updates._id;
+
+        console.log("Looking for number:", inputNumber);
+        const updatedUser = await User.findOneAndUpdate(
+          { number: inputNumber },
+          updates,
+          {
+            new: true,
+            runValidators: true,
+          }
+        );
+
+        if (!updatedUser) {
+          return res
+            .status(404)
+            .json({ error: `User with number ${inputNumber} not found` });
+        }
+
+        console.log("Updated user:", updatedUser);
+        res.json(updatedUser);
+      } catch (err) {
+        console.error("Error updating user by number:", err.message);
+        res.status(500).json({ error: "Internal Server Error" });
+      }
+    });
+
     // === DOWNLOAD USERS CSV ===
     app.get("/download-users", async (req, res) => {
       try {
