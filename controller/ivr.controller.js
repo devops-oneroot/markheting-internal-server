@@ -1,6 +1,6 @@
 import IVR from "../model/ivr.model.js";
 import User from "../model/user.model.js";
-import { createUserAndSendFlow } from "../whatsapp.js";
+import { createUserAndSendFlow } from "../whatsapp/whatsapp.js";
 
 const ivrFlowId = "1750143051951";
 

@@ -14,7 +14,7 @@ import aiBotsRoutes from "./routes/aiBotCalls.route.js";
 import fieldTicketRoutes from "./routes/fieldTicket.route.js";
 import aiBotsDataRoutes from "./routes/aibotsData.route.js";
 import socialMediaRoutes from "./routes/socialMedia.route.js";
-import { createUserAndSendFlow, sendUpdateFlow } from "./whatsapp.js";
+import { createUserAndSendFlow, sendUpdateFlow } from "./whatsapp/whatsapp.js";
 import { format } from "fast-csv";
 import { verifyMiddlewareToken } from "./middleware/auth.js";
 dotenv.config();
