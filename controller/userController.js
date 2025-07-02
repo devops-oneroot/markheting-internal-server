@@ -1,8 +1,8 @@
-import User from "../model/user.model.js"; // Import your User model
+import User from "../model/user.model.js";
 import fs from "fs";
 import csvParser from "csv-parser";
 import * as csvStringify from "csv-stringify";
-import { createUserWithFieldsAndFlow } from "../updatewhatsapp.js";
+import { createUserWithFieldsAndFlow } from "../whatsapp/updatewhatsapp.js";
 import Bottleneck from "bottleneck";
 import { Parser } from "json2csv";
 import archiver from "archiver";
