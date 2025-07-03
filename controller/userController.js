@@ -364,8 +364,8 @@ export const updateDatabase = async (req, res) => {
     let updatedCount = 0;
 
     const updateCursor = User.find(
-      { consent: "yes" },
-      { number: 1, onboarded_date: 1, consent_date: 1, identity: 1 }
+      { downloaded: { $in: [null, false] } },
+      { number: 1, onboarded_date: 1, consent_date: 1 }
     )
       .lean()
       .cursor();
@@ -388,9 +388,9 @@ export const updateDatabase = async (req, res) => {
         consent_date: dbUser.consent_date ?? apiUser.createdAt,
       };
 
-      const mapped = apiUser.identity === "FARMER" ? "Farmer" : "Harvester";
-      if (apiUser.identity && dbUser.identity !== mapped) {
-        updateSet.identity = mapped;
+      if (apiUser.identity && dbUser.identity !== apiUser.identity) {
+        updateSet.identity =
+          apiUser.identity === "FARMER" ? "Farmer" : "Harvester";
       }
 
       updateOps.push({
