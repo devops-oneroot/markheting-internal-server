@@ -69,10 +69,10 @@ export const concentAdd = async (req, res) => {
                   filter: { number },
                   update: {
                     $set: {
-                      consent: "yes",    
+                      consent: "yes",
                       consent_date: consentDate,
                       identity: "Unknown",
-                      tag: "Markhet_consent",
+                      tag: "csv_market_consent",
                     },
                   },
                   upsert: true,
@@ -364,8 +364,8 @@ export const updateDatabase = async (req, res) => {
     let updatedCount = 0;
 
     const updateCursor = User.find(
-      { downloaded: { $in: [null, false] } },
-      { number: 1, onboarded_date: 1, consent_date: 1 }
+      { consent: "yes" },
+      { number: 1, onboarded_date: 1, consent_date: 1, identity: 1 }
     )
       .lean()
       .cursor();
@@ -388,9 +388,9 @@ export const updateDatabase = async (req, res) => {
         consent_date: dbUser.consent_date ?? apiUser.createdAt,
       };
 
-      if (apiUser.identity && dbUser.identity !== apiUser.identity) {
-        updateSet.identity =
-          apiUser.identity === "FARMER" ? "Farmer" : "Harvester";
+      const mapped = apiUser.identity === "FARMER" ? "Farmer" : "Harvester";
+      if (apiUser.identity && dbUser.identity !== mapped) {
+        updateSet.identity = mapped;
       }
 
       updateOps.push({
