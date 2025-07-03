@@ -337,7 +337,7 @@ export const updateDatabase = async (req, res) => {
     if (!apiRes.ok) {
       throw new Error(`API fetch failed with status ${apiRes.status}`);
     }
-    const { data: apiUsers = [] } = await apiRes.json();
+    const apiUsers = await apiRes.json();
     console.log(`Fetched ${apiUsers.length} users from API`);
 
     // 2) Normalize phone numbers & map by number
