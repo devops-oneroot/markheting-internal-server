@@ -69,8 +69,10 @@ export const concentAdd = async (req, res) => {
                   filter: { number },
                   update: {
                     $set: {
-                      consent: "yes",
+                      consent: "yes",    
                       consent_date: consentDate,
+                      identity: "Unknown",
+                      tag: "Markhet_consent",
                     },
                   },
                   upsert: true,
