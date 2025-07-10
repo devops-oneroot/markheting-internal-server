@@ -328,12 +328,29 @@ export const concentAddAllowOverwrite = async (req, res) => {
   }
 };
 
+// 🔁 Retry logic for handling 429 rate limit errors
+const fetchWithRetry = async (url, retries = 3, delay = 1000) => {
+  for (let i = 0; i < retries; i++) {
+    const res = await fetch(url);
+    if (res.status !== 429) return res;
+
+    console.warn(
+      `⚠️ Got 429 Too Many Requests. Retrying in ${delay * (i + 1)}ms...`
+    );
+    await new Promise((resolve) => setTimeout(resolve, delay * (i + 1)));
+  }
+  throw new Error("Too many requests - fetch failed after retries");
+};
+
+// ✅ Main controller
 export const updateDatabase = async (req, res) => {
   try {
     console.log("Starting database update process…");
 
-    // 1) Fetch users from the external API
-    const apiRes = await fetch("https://markhet-internal.onrender.com/users");
+    // 1) Fetch users from the external API (with retry)
+    const apiRes = await fetchWithRetry(
+      "https://markhet-internal.onrender.com/users"
+    );
     if (!apiRes.ok) {
       throw new Error(`API fetch failed with status ${apiRes.status}`);
     }
@@ -406,11 +423,12 @@ export const updateDatabase = async (req, res) => {
         updateOps = [];
       }
     }
+
     if (updateOps.length) {
       const r = await User.bulkWrite(updateOps);
       updatedCount += r.modifiedCount || 0;
-      updateOps = [];
     }
+
     console.log(`Updated ${updatedCount} existing users`);
 
     // 5) Batch‐insert new users
@@ -423,6 +441,7 @@ export const updateDatabase = async (req, res) => {
 
       const hasToken =
         apiUser.fcmToken && !apiUser.fcmToken.startsWith("dummy");
+
       insertBatch.push({
         number: norm,
         downloaded: hasToken,
@@ -448,12 +467,12 @@ export const updateDatabase = async (req, res) => {
           });
           insertedCount += inserted.length;
         } catch (err) {
-          // Count partial successes if any duplicates
-          insertedCount += err.insertedDocs?.length || 0;
+          // Count partial successes if any duplicates          insertedCount += err.insertedDocs?.length || 0;
         }
         insertBatch = [];
       }
     }
+
     if (insertBatch.length) {
       try {
         const inserted = await User.insertMany(insertBatch, { ordered: false });
@@ -462,6 +481,7 @@ export const updateDatabase = async (req, res) => {
         insertedCount += err.insertedDocs?.length || 0;
       }
     }
+
     console.log(`Inserted ${insertedCount} new users`);
 
     // 6) Final response
