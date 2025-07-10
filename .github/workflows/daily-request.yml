@@ -2,8 +2,8 @@ name: Daily API Request
 
 on:
   schedule:
-    # Runs every day at 11:40 AM UTC (which is 5:10 PM IST)
-    - cron: "40 11 * * *"
+    # Runs every day at 4:30 PM UTC (which is 10:00 PM IST)
+    - cron: "30 16 * * *"
   workflow_dispatch:
 
 jobs:
