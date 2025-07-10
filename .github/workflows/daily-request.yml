@@ -2,9 +2,8 @@ name: Daily API Request
 
 on:
   schedule:
-  # Runs every day at 3:15 PM IST (9:45 AM UTC)
- - cron: "45 9 * * *"
-
+    # Runs every day at 3:30 PM IST (which is 10:00 AM UTC)
+    - cron: "0 10 * * *"
 
 jobs:
   hit-api:
