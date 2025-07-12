@@ -6,6 +6,7 @@ import { createUserWithFieldsAndFlow } from "../whatsapp/updatewhatsapp.js";
 import Bottleneck from "bottleneck";
 import { Parser } from "json2csv";
 import archiver from "archiver";
+import { fetchWithRetry } from "../utils/fetchWithRetry.js";
 
 const limiter = new Bottleneck({
   maxConcurrent: 1,
@@ -328,43 +329,27 @@ export const concentAddAllowOverwrite = async (req, res) => {
   }
 };
 
-// 🔁 Retry logic for handling 429 rate limit errors
-const fetchWithRetry = async (url, retries = 3, delay = 1000) => {
-  for (let i = 0; i < retries; i++) {
-    const res = await fetch(url);
-    if (res.status !== 429) return res;
-
-    console.warn(
-      `⚠️ Got 429 Too Many Requests. Retrying in ${delay * (i + 1)}ms...`
-    );
-    await new Promise((resolve) => setTimeout(resolve, delay * (i + 1)));
-  }
-  throw new Error("Too many requests - fetch failed after retries");
-};
-
-// ✅ Main controller
 export const updateDatabase = async (req, res) => {
   try {
     console.log("Starting database update process…");
 
-    // 1) Fetch users from the external API (with retry)
     const apiRes = await fetchWithRetry(
       "https://markhet-internal.onrender.com/users"
     );
+
     if (!apiRes.ok) {
       throw new Error(`API fetch failed with status ${apiRes.status}`);
     }
+
     const apiUsers = await apiRes.json();
     console.log(`Fetched ${apiUsers.length} users from API`);
 
-    // 2) Normalize phone numbers & map by number
     const normalizePhone = (phone) => phone.replace(/^(\+91|\+)/, "").trim();
     const apiMap = new Map();
     for (const u of apiUsers) {
       apiMap.set(normalizePhone(u.mobileNumber), u);
     }
 
-    // 3) Build a Set of all DB numbers (lean cursor)
     console.log("Building DB number set…");
     const dbNumberSet = new Set();
     for await (const { number } of User.find({}, { number: 1 })
@@ -374,7 +359,6 @@ export const updateDatabase = async (req, res) => {
     }
     console.log(`DB has ${dbNumberSet.size} users`);
 
-    // 4) Batch‐update existing users who haven’t downloaded
     console.log("Batch‐updating existing users…");
     const BATCH_SIZE = 500;
     let updateOps = [];
@@ -390,13 +374,11 @@ export const updateDatabase = async (req, res) => {
     for await (const dbUser of updateCursor) {
       const norm = normalizePhone(dbUser.number);
       const apiUser = apiMap.get(norm);
-      console.log(dbUser, "dbuser");
-      console.log(apiUser, "apiuser");
-      console.log(norm, "norm");
       if (!apiUser) continue;
 
       const hasToken =
         apiUser.fcmToken && !apiUser.fcmToken.startsWith("dummy");
+
       const updateSet = {
         downloaded: hasToken,
         downloaded_date: hasToken ? apiUser.createdAt : null,
@@ -431,7 +413,6 @@ export const updateDatabase = async (req, res) => {
 
     console.log(`Updated ${updatedCount} existing users`);
 
-    // 5) Batch‐insert new users
     console.log("Batch‐inserting new users…");
     let insertedCount = 0;
     let insertBatch = [];
@@ -454,9 +435,9 @@ export const updateDatabase = async (req, res) => {
         taluk: apiUser.taluk,
         district: apiUser.district,
         village: apiUser.village,
-        identity: apiUser.identity == "FARMER" ? "Farmer" : "Harvester",
+        identity: apiUser.identity === "FARMER" ? "Farmer" : "Harvester",
         tag: `${
-          apiUser.identity == "FARMER" ? "Farmer" : "Harvester"
+          apiUser.identity === "FARMER" ? "Farmer" : "Harvester"
         } Markhet_api`,
       });
 
@@ -467,7 +448,7 @@ export const updateDatabase = async (req, res) => {
           });
           insertedCount += inserted.length;
         } catch (err) {
-          // Count partial successes if any duplicates          insertedCount += err.insertedDocs?.length || 0;
+          insertedCount += err.insertedDocs?.length || 0;
         }
         insertBatch = [];
       }
@@ -484,7 +465,6 @@ export const updateDatabase = async (req, res) => {
 
     console.log(`Inserted ${insertedCount} new users`);
 
-    // 6) Final response
     return res.status(200).json({
       message: "Database updated successfully",
       updatedCount,
