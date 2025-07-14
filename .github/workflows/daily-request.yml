@@ -2,17 +2,119 @@ name: Daily API Request
 
 on:
   schedule:
-    # 4:45 PM UTC (10:15 PM IST)
-    - cron: "45 16 * * *"
-    # 10:00 PM UTC (3:30 AM IST next day IST)
-    - cron: "0 22 * * *"
+    # 10:00 PM IST (4:30 PM UTC same day)
+    - cron: "30 16 * * *"
   workflow_dispatch:
 
 jobs:
   hit-api:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
-      - name: Make API request
+      - name: Make API request with robust error handling
         run: |
-          curl -X GET "https://campdash.onrender.com/update-database"
+          echo "🚀 Starting API request at $(date)"
+
+          max_retries=5
+          retry_count=0
+          success=false
+
+          while [ $retry_count -lt $max_retries ] && [ "$success" = false ]; do
+            echo "📡 Attempt $((retry_count + 1)) of $max_retries"
+            
+            # Make the API request with longer timeout
+            response=$(curl -s -w "\n%{http_code}\n%{time_total}" \
+              --max-time 300 \
+              --connect-timeout 30 \
+              --retry 0 \
+              -H "Accept: application/json" \
+              -H "User-Agent: GitHub-Actions-CampDash/1.0" \
+              -X GET "https://campdash.onrender.com/update-database" || echo "curl_failed")
+            
+            if [ "$response" = "curl_failed" ]; then
+              echo "❌ Curl command failed completely"
+              retry_count=$((retry_count + 1))
+              if [ $retry_count -lt $max_retries ]; then
+                echo "⏳ Waiting 60 seconds before retry..."
+                sleep 60
+              fi
+              continue
+            fi
+            
+            # Extract response parts
+            body=$(echo "$response" | head -n -2)
+            http_code=$(echo "$response" | tail -n 2 | head -n 1)
+            time_total=$(echo "$response" | tail -n 1)
+            
+            echo "📊 HTTP Status: $http_code"
+            echo "⏱️  Total time: ${time_total}s"
+            echo "📄 Response body: $body"
+            
+            case $http_code in
+              200)
+                echo "✅ API request successful!"
+                success=true
+                ;;
+              429)
+                echo "⚠️  Rate limit hit (429)"
+                retry_count=$((retry_count + 1))
+                if [ $retry_count -lt $max_retries ]; then
+                  # Exponential backoff for rate limits
+                  wait_time=$((60 * retry_count * retry_count))
+                  echo "⏳ Waiting $wait_time seconds for rate limit..."
+                  sleep $wait_time
+                fi
+                ;;
+              500)
+                echo "💥 Internal server error (500)"
+                echo "Response: $body"
+                retry_count=$((retry_count + 1))
+                if [ $retry_count -lt $max_retries ]; then
+                  wait_time=$((30 * retry_count))
+                  echo "⏳ Waiting $wait_time seconds before retry..."
+                  sleep $wait_time
+                fi
+                ;;
+              502|503|504)
+                echo "🔧 Server temporarily unavailable ($http_code)"
+                retry_count=$((retry_count + 1))
+                if [ $retry_count -lt $max_retries ]; then
+                  wait_time=$((60 * retry_count))
+                  echo "⏳ Waiting $wait_time seconds for server recovery..."
+                  sleep $wait_time
+                fi
+                ;;
+              *)
+                echo "❌ Unexpected HTTP status: $http_code"
+                echo "Response: $body"
+                retry_count=$((retry_count + 1))
+                if [ $retry_count -lt $max_retries ]; then
+                  echo "⏳ Waiting 45 seconds before retry..."
+                  sleep 45
+                fi
+                ;;
+            esac
+          done
+
+          if [ "$success" = false ]; then
+            echo "💀 All retry attempts failed after $max_retries tries"
+            echo "🔍 Troubleshooting tips:"
+            echo "  1. Check if https://campdash.onrender.com is accessible"
+            echo "  2. Verify the internal API https://markhet-internal.onrender.com/users is not rate limited"
+            echo "  3. Consider running this job less frequently"
+            echo "  4. Check server logs for the exact error"
+            exit 1
+          fi
+
+          echo "🎉 Workflow completed successfully at $(date)"
+
+      - name: Send notification on failure
+        if: failure()
+        run: |
+          echo "📧 Workflow failed - consider setting up notifications"
+          echo "Timestamp: $(date)"
+          echo "You may want to:"
+          echo "  - Check the API server status"
+          echo "  - Reduce cron frequency"
+          echo "  - Add authentication if available"

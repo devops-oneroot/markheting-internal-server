@@ -329,17 +329,24 @@ export const concentAddAllowOverwrite = async (req, res) => {
   }
 };
 
+// Updated API handler
 export const updateDatabase = async (req, res) => {
   try {
     console.log("Starting database update process…");
 
+    // Add longer timeout and better error handling
     const apiRes = await fetchWithRetry(
-      "https://markhet-internal.onrender.com/users"
+      "https://markhet-internal.onrender.com/users",
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "CampDash-Updater/1.0",
+        },
+      },
+      8, // 8 retries
+      3000 // 3 second base delay
     );
-
-    if (!apiRes.ok) {
-      throw new Error(`API fetch failed with status ${apiRes.status}`);
-    }
 
     const apiUsers = await apiRes.json();
     console.log(`Fetched ${apiUsers.length} users from API`);
@@ -474,11 +481,19 @@ export const updateDatabase = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating database:", error);
-    return res.status(500).json({
-      message: "Internal server error",
+
+    // Better error response
+    const errorResponse = {
+      message: "Database update failed",
       details: error.message,
-      ...(process.env.NODE_ENV === "development" && { stack: error.stack }),
-    });
+      timestamp: new Date().toISOString(),
+    };
+
+    if (process.env.NODE_ENV === "development") {
+      errorResponse.stack = error.stack;
+    }
+
+    return res.status(500).json(errorResponse);
   }
 };
 
