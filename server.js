@@ -14,6 +14,8 @@ import aiBotsRoutes from "./routes/aiBotCalls.route.js";
 import fieldTicketRoutes from "./routes/fieldTicket.route.js";
 import aiBotsDataRoutes from "./routes/aibotsData.route.js";
 import socialMediaRoutes from "./routes/socialMedia.route.js";
+import harvesterRoutes from "./routes/harvester.route.js";
+import errorHandler from "./middleware/errorHandler.js";
 import { createUserAndSendFlow, sendUpdateFlow } from "./whatsapp/whatsapp.js";
 import { format } from "fast-csv";
 import { verifyMiddlewareToken } from "./middleware/auth.js";
@@ -25,7 +27,15 @@ async function startServer() {
     const app = express();
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
-    app.use(cors());
+    // app.use(cors());
+
+    app.use(
+      cors({
+        origin: "http://localhost:3000",
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        credentials: true,
+      })
+    );
     // Routes
     app.use(userRoute);
     app.use(plivoRoute);
@@ -38,6 +48,7 @@ async function startServer() {
     app.use("/field-ticket", fieldTicketRoutes);
     app.use("/aibotData", aiBotsDataRoutes);
     app.use("/social-media", socialMediaRoutes);
+    app.use("/harvester", harvesterRoutes);
     // Base route
     app.get("/", (req, res) => {
       res.send("Welcome to market dashboard");
