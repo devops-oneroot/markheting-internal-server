@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import Ticket from "../model/ticket.model.js";
 
+import User from "../model/user.model.js";
+
 export const createTicket = async (req, res) => {
   try {
     // Create the ticket
@@ -98,6 +100,120 @@ export const getTicketById = async (req, res) => {
   }
 };
 
+// export const getTicketsOpened = async (req, res) => {
+//   try {
+//     const id = req.user;
+//     const role = req.role;
+//     const agentObjectId = new mongoose.Types.ObjectId(id);
+//     const now = new Date();
+//     const startOfDay = new Date(now.setHours(0, 0, 0, 0));
+//     const endOfDay = new Date(now.setHours(23, 59, 59, 999));
+
+//     // Get pagination parameters from query (with defaults)
+//     const page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 10;
+//     const skip = (page - 1) * limit;
+
+//     console.log("role:", role);
+
+//     let matchStage;
+//     if (role === "admin") {
+//       matchStage = {
+//         status: { $in: ["Opened", "Waiting For"] },
+//       };
+//     } else {
+//       matchStage = {
+//         assigned_to: agentObjectId,
+//         status: { $in: ["Opened", "Waiting For"] },
+//       };
+//     }
+
+//     // Create aggregation pipeline with pagination
+//     const aggregationPipeline = [
+//       { $match: matchStage },
+//       {
+//         $addFields: {
+//           priorityRank: {
+//             $switch: {
+//               branches: [
+//                 { case: { $eq: ["$priority", "asap"] }, then: 1 },
+//                 { case: { $eq: ["$priority", "high"] }, then: 2 },
+//                 { case: { $eq: ["$priority", "medium"] }, then: 3 },
+//                 { case: { $eq: ["$priority", "low"] }, then: 4 },
+//               ],
+//               default: 5,
+//             },
+//           },
+//         },
+//       },
+//       {
+//         $addFields: {
+//           groupRank: {
+//             $switch: {
+//               branches: [
+//                 { case: { $eq: ["$priority", "asap"] }, then: 1 },
+//                 { case: { $lt: ["$dueDate", startOfDay] }, then: 2 },
+//                 {
+//                   case: {
+//                     $and: [
+//                       { $gte: ["$dueDate", startOfDay] },
+//                       { $lte: ["$dueDate", endOfDay] },
+//                     ],
+//                   },
+//                   then: 3,
+//                 },
+//                 { case: { $eq: ["$status", "Waiting For"] }, then: 5 },
+//               ],
+//               default: 4,
+//             },
+//           },
+//         },
+//       },
+//       { $sort: { groupRank: 1, priorityRank: 1, dueDate: 1 } },
+//       {
+//         $facet: {
+//           metadata: [
+//             { $count: "total" },
+//             {
+//               $addFields: {
+//                 page,
+//                 limit,
+//                 totalPages: { $ceil: { $divide: ["$total", limit] } },
+//               },
+//             },
+//           ],
+//           data: [{ $skip: skip }, { $limit: limit }],
+//         },
+//       },
+//     ];
+
+//     const [result] = await Ticket.aggregate(aggregationPipeline);
+
+//     // Extract pagination metadata
+//     const metadata = result.metadata[0] || {
+//       total: 0,
+//       page,
+//       limit,
+//       totalPages: 0,
+//     };
+//     const tickets = result.data;
+
+//     return res.status(200).json({
+//       success: true,
+//       data: tickets,
+//       pagination: {
+//         currentPage: metadata.page,
+//         totalPages: metadata.totalPages,
+//         totalItems: metadata.total,
+//         limit: metadata.limit,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("getTicketsOpened error:", error);
+//     return res.status(500).json({ success: false, message: "Server Error" });
+//   }
+// };
+
 export const getTicketsOpened = async (req, res) => {
   try {
     const id = req.user;
@@ -107,13 +223,13 @@ export const getTicketsOpened = async (req, res) => {
     const startOfDay = new Date(now.setHours(0, 0, 0, 0));
     const endOfDay = new Date(now.setHours(23, 59, 59, 999));
 
-    console.log("role:", role);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
     let matchStage;
     if (role === "admin") {
-      matchStage = {
-        status: { $in: ["Opened", "Waiting For"] },
-      };
+      matchStage = { status: { $in: ["Opened", "Waiting For"] } };
     } else {
       matchStage = {
         assigned_to: agentObjectId,
@@ -121,7 +237,7 @@ export const getTicketsOpened = async (req, res) => {
       };
     }
 
-    const tickets = await Ticket.aggregate([
+    const aggregationPipeline = [
       { $match: matchStage },
       {
         $addFields: {
@@ -161,12 +277,59 @@ export const getTicketsOpened = async (req, res) => {
           },
         },
       },
+      {
+        $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "userInfo",
+        },
+      },
+      {
+        $unwind: {
+          path: "$userInfo",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
       { $sort: { groupRank: 1, priorityRank: 1, dueDate: 1 } },
-    ]);
+      {
+        $facet: {
+          metadata: [
+            { $count: "total" },
+            {
+              $addFields: {
+                page,
+                limit,
+                totalPages: { $ceil: { $divide: ["$total", limit] } },
+              },
+            },
+          ],
+          data: [{ $skip: skip }, { $limit: limit }],
+        },
+      },
+    ];
 
-    return res.status(200).json({ success: true, data: tickets });
+    const [result] = await Ticket.aggregate(aggregationPipeline);
+
+    const metadata = result.metadata[0] || {
+      total: 0,
+      page,
+      limit,
+      totalPages: 0,
+    };
+
+    return res.status(200).json({
+      success: true,
+      data: result.data,
+      pagination: {
+        currentPage: metadata.page,
+        totalPages: metadata.totalPages,
+        totalItems: metadata.total,
+        limit: metadata.limit,
+      },
+    });
   } catch (error) {
-    console.error("getTicketsOpenedById error:", error);
+    console.error("getTicketsOpened error:", error);
     return res.status(500).json({ success: false, message: "Server Error" });
   }
 };
@@ -353,5 +516,62 @@ export const multiTicketUpdate = async (req, res) => {
   } catch (error) {
     console.error("multiTicketUpdate error:", error);
     return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+export const handleWebhook = async (req, res) => {
+  console.log("📥 Webhook received:", req.body);
+
+  try {
+    const data = req.body;
+
+    if (!data.number) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required field: number",
+      });
+    }
+
+    const normalizedNumber = data.number.replace(/^(\+91|91)/, "").trim();
+    const defaultAgentId = "6871f47051c9213df93ebc01";
+
+    const assignedTo = [new mongoose.Types.ObjectId(defaultAgentId)];
+
+    const existingUser = await User.findOne({ number: normalizedNumber });
+
+    const today = new Date(); // ✅ Get today's date
+
+    const ticketPayload = {
+      label: "Webhook",
+      number: normalizedNumber,
+      task: data.description || "Follow-up call",
+      cropName: data.cropName || "NAP",
+      assigned_to: assignedTo,
+      created_By: new mongoose.Types.ObjectId(defaultAgentId),
+      status: "Opened",
+      dueDate: today, // ✅ Add dueDate here
+    };
+
+    if (existingUser?._id) {
+      ticketPayload.userId = existingUser._id;
+    }
+
+    const ticket = await Ticket.create(ticketPayload);
+
+    return res.status(201).json({
+      success: true,
+      message: existingUser
+        ? "User exists. Ticket created and linked to user."
+        : "User not found. Ticket created without user reference.",
+      ticket,
+    });
+  } catch (error) {
+    console.error("❌ Error in handleWebhook:", error);
+    if (!res.headersSent) {
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
   }
 };
