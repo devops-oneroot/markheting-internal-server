@@ -533,23 +533,19 @@ export const handleWebhook = async (req, res) => {
     }
 
     const normalizedNumber = data.number.replace(/^(\+91|91)/, "").trim();
-    const defaultAgentId = "6871f47051c9213df93ebc01";
-
+    const defaultAgentId = "6871fca8006c830449817ed7";
     const assignedTo = [new mongoose.Types.ObjectId(defaultAgentId)];
 
     const existingUser = await User.findOne({ number: normalizedNumber });
 
-    const today = new Date(); // ✅ Get today's date
-
     const ticketPayload = {
-      label: "Webhook",
+      label: data.label || "webhook ticket",
       number: normalizedNumber,
       task: data.description || "Follow-up call",
       cropName: data.cropName || "NAP",
       assigned_to: assignedTo,
       created_By: new mongoose.Types.ObjectId(defaultAgentId),
       status: "Opened",
-      dueDate: today, // ✅ Add dueDate here
     };
 
     if (existingUser?._id) {
