@@ -538,6 +538,8 @@ export const handleWebhook = async (req, res) => {
 
     const existingUser = await User.findOne({ number: normalizedNumber });
 
+    const today = new Date(); // ✅ Today as default
+
     const ticketPayload = {
       label: data.label || "webhook ticket",
       number: normalizedNumber,
@@ -546,6 +548,7 @@ export const handleWebhook = async (req, res) => {
       assigned_to: assignedTo,
       created_By: new mongoose.Types.ObjectId(defaultAgentId),
       status: "Opened",
+      dueDate: today,
     };
 
     if (existingUser?._id) {
