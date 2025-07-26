@@ -533,8 +533,8 @@ export const handleWebhook = async (req, res) => {
     }
 
     const normalizedNumber = data.number.replace(/^(\+91|91)/, "").trim();
-    const defaultAgentId = "6871fca8006c830449817ed7";
-    ("6871f47051c9213df93ebc01");
+    const defaultAgentId = "6871f47051c9213df93ebc01";
+
     const assignedTo = [new mongoose.Types.ObjectId(defaultAgentId)];
 
     const existingUser = await User.findOne({ number: normalizedNumber });
