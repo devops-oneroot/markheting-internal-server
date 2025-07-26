@@ -15,10 +15,12 @@ import fieldTicketRoutes from "./routes/fieldTicket.route.js";
 import aiBotsDataRoutes from "./routes/aibotsData.route.js";
 import socialMediaRoutes from "./routes/socialMedia.route.js";
 import harvesterRoutes from "./routes/harvester.route.js";
+
 import errorHandler from "./middleware/errorHandler.js";
 import { createUserAndSendFlow, sendUpdateFlow } from "./whatsapp/whatsapp.js";
 import { format } from "fast-csv";
 import { verifyMiddlewareToken } from "./middleware/auth.js";
+import publicRouter from "./routes/public.routes.js";
 dotenv.config();
 const PORT = process.env.PORT || 3003;
 async function startServer() {
@@ -35,6 +37,7 @@ async function startServer() {
     app.use(plivoReportRoute);
     app.use("/ivr", ivrRoute);
     app.use("/agent", agentRoutes);
+    app.use("/", publicRouter);
     app.use("/ticket", verifyMiddlewareToken, ticketRoutes);
     app.use("/admin", verifyMiddlewareToken, adminRoutes);
     app.use("/aibot", aiBotsRoutes);
@@ -235,7 +238,6 @@ async function startServer() {
       }
     });
 
-    app.get("/webhook", handleWebhook);
     app.get("/update-webhook", handleUpdateWebhook);
     app.listen(PORT, () => {
       console.log(
