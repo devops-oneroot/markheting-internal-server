@@ -27,6 +27,7 @@ export const createTicket = async (req, res) => {
       village,
       age,
       farmer_category,
+      label,
     } = req.body;
 
     const ticket = await Ticket.create({
@@ -49,7 +50,8 @@ export const createTicket = async (req, res) => {
       consent_date: consent_date, // Map to the schema field
       village,
       age,
-      farmer_category: farmer_category, // Map to the schema field
+      farmer_category: farmer_category,
+      label, // Map to the schema field
     });
 
     return res.status(201).json({
