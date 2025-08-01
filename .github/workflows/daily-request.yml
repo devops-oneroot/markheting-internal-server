@@ -30,7 +30,7 @@ jobs:
               --retry 0 \
               -H "Accept: application/json" \
               -H "User-Agent: GitHub-Actions-CampDash/1.0" \
-              -X GET "https://campdash.onrender.com/update-database" || echo "curl_failed")
+              -X GET "https://dashboard-server.markhet.app/update-database" || echo "curl_failed")
             
             if [ "$response" = "curl_failed" ]; then
               echo "❌ Curl command failed completely"

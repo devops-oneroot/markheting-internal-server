@@ -1,6 +1,6 @@
 import fetch from "node-fetch";
 
-const url = "https://campdash.onrender.com/update-database";
+const url = "https://dashboard-server.markhet.app/update-database";
 fetch(url)
   .then((response) => {
     if (response.ok) {

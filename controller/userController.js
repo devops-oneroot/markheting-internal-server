@@ -336,7 +336,7 @@ export const updateDatabase = async (req, res) => {
 
     // Add longer timeout and better error handling
     const apiRes = await fetchWithRetry(
-      "https://markhet-internal.onrender.com/users",
+      "https://dashboard-server.markhet.app/users",
       {
         method: "GET",
         headers: {
