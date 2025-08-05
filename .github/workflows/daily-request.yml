@@ -2,7 +2,7 @@ name: Daily API Request
 
 on:
   schedule:
-    # 10:00 PM IST (4:30 PM UTC same day)
+    # Runs every day at 10:00 PM IST (4:30 PM UTC)
     - cron: "30 16 * * *"
   workflow_dispatch:
 
@@ -22,16 +22,14 @@ jobs:
 
           while [ $retry_count -lt $max_retries ] && [ "$success" = false ]; do
             echo "📡 Attempt $((retry_count + 1)) of $max_retries"
-            
-            # Make the API request with longer timeout
+
             response=$(curl -s -w "\n%{http_code}\n%{time_total}" \
               --max-time 300 \
               --connect-timeout 30 \
-              --retry 0 \
               -H "Accept: application/json" \
               -H "User-Agent: GitHub-Actions-CampDash/1.0" \
-              -X GET "https://dashboard-server.markhet.app/update-database" || echo "curl_failed")
-            
+              -X GET "https://markheting-internal-server.onrender.com/update-database" || echo "curl_failed")
+
             if [ "$response" = "curl_failed" ]; then
               echo "❌ Curl command failed completely"
               retry_count=$((retry_count + 1))
@@ -41,16 +39,15 @@ jobs:
               fi
               continue
             fi
-            
-            # Extract response parts
+
             body=$(echo "$response" | head -n -2)
             http_code=$(echo "$response" | tail -n 2 | head -n 1)
             time_total=$(echo "$response" | tail -n 1)
-            
+
             echo "📊 HTTP Status: $http_code"
             echo "⏱️  Total time: ${time_total}s"
             echo "📄 Response body: $body"
-            
+
             case $http_code in
               200)
                 echo "✅ API request successful!"
@@ -60,7 +57,6 @@ jobs:
                 echo "⚠️  Rate limit hit (429)"
                 retry_count=$((retry_count + 1))
                 if [ $retry_count -lt $max_retries ]; then
-                  # Exponential backoff for rate limits
                   wait_time=$((60 * retry_count * retry_count))
                   echo "⏳ Waiting $wait_time seconds for rate limit..."
                   sleep $wait_time
@@ -68,7 +64,6 @@ jobs:
                 ;;
               500)
                 echo "💥 Internal server error (500)"
-                echo "Response: $body"
                 retry_count=$((retry_count + 1))
                 if [ $retry_count -lt $max_retries ]; then
                   wait_time=$((30 * retry_count))
@@ -87,7 +82,6 @@ jobs:
                 ;;
               *)
                 echo "❌ Unexpected HTTP status: $http_code"
-                echo "Response: $body"
                 retry_count=$((retry_count + 1))
                 if [ $retry_count -lt $max_retries ]; then
                   echo "⏳ Waiting 45 seconds before retry..."
@@ -100,8 +94,8 @@ jobs:
           if [ "$success" = false ]; then
             echo "💀 All retry attempts failed after $max_retries tries"
             echo "🔍 Troubleshooting tips:"
-            echo "  1. Check if https://campdash.onrender.com is accessible"
-            echo "  2. Verify the internal API https://markhet-internal.onrender.com/users is not rate limited"
+            echo "  1. Check if https://markheting-internal-server.onrender.com is accessible"
+            echo "  2. Confirm there is no rate limit or firewall blocking GitHub IPs"
             echo "  3. Consider running this job less frequently"
             echo "  4. Check server logs for the exact error"
             exit 1
