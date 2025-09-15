@@ -21,7 +21,7 @@ export const plivoAnswer = async (req, res) => {
       const responseXml = create({ version: "1.0" })
         .ele("Response")
         .ele("GetDigits", {
-          action: `https://campdash.onrender.com/plivo/answer-handle?reportId=${reportId}&cropName=${cropName}`,
+          action: `https://markheting-internal-server.onrender.com/plivo/answer-handle?reportId=${reportId}&cropName=${cropName}`,
           method: "POST",
           timeout: "10",
           numDigits: "1",
@@ -44,7 +44,7 @@ export const plivoAnswer = async (req, res) => {
     const responseXml = create({ version: "1.0" })
       .ele("Response")
       .ele("GetDigits", {
-        action: `https://campdash.onrender.com/plivo/answer-handle?reportId=${reportId}&cropName=${cropName}`,
+        action: `https://markheting-internal-server.onrender.com/plivo/answer-handle?reportId=${reportId}&cropName=${cropName}`,
         method: "POST",
         timeout: "10",
         numDigits: "1",
@@ -108,7 +108,7 @@ export const plivoAnswerHandle = async (req, res) => {
       const xml = create({ version: "1.0" })
         .ele("Response")
         .ele("GetDigits", {
-          action: `https://campdash.onrender.com/plivo/days-handle?reportId=${reportId}&cropName=${cropName}`,
+          action: `https://markheting-internal-server.onrender.com/plivo/days-handle?reportId=${reportId}&cropName=${cropName}`,
           method: "POST",
           timeout: "10",
           numDigits: "2",
