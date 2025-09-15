@@ -4,35 +4,30 @@ import mongoose from "mongoose";
 import PlivoReport from "../../model/plivo-job-report.model.js";
 import fetch from "node-fetch";
 
-// Load environment variables
 dotenv.config();
 
 // Constants
-const SOURCE_NUMBER = process.env.PLIVO_SOURCE_NUMBER;
+const SOURCE_NUMBER = process.env.PLIVO_SOURCE_NUMBER || "+918035737570";
 const ANSWER_URL =
-  process.env.PLIVO_ANSWER_URL || "https://campdash.onrender.com/plivo/answer";
+  process.env.ANSWER_URL ||
+  "https://markheting-internal-server.onrender.com/plivo/answer";
 const FARMERS_API_URL =
-  process.env.FARMERS_API_URL || "http://localhost:3002/crop/rth/number";
+  process.env.FARMERS_API_URL ||
+  "https://markhet-internal-ngfs.onrender.com/crop/rth/number";
 const MONGO_URI = process.env.MONGO_URI;
-const MAX_RECENT_REPORTS = process.env.MAX_RECENT_REPORTS || 2;
+const MAX_RECENT_REPORTS = parseInt(process.env.MAX_RECENT_REPORTS || "2", 10);
 
 // Plivo client reference
 let plivoClient = null;
 
-/**
- * Initialize Plivo client with credentials
- */
+// Initialize Plivo client
 function initializePlivoClient() {
   try {
-    if (!process.env.PLIVO_AUTH_ID || !process.env.PLIVO_AUTH_TOKEN) {
-      throw new Error("Plivo credentials missing in environment variables");
-    }
+    const authId = process.env.PLIVO_AUTH_ID;
+    const authToken = process.env.PLIVO_AUTH_TOKEN;
+    if (!authId || !authToken) throw new Error("Missing Plivo credentials");
 
-    plivoClient = new plivo.Client(
-      process.env.PLIVO_AUTH_ID,
-      process.env.PLIVO_AUTH_TOKEN
-    );
-
+    plivoClient = new plivo.Client(authId, authToken);
     console.info("✅ Plivo client initialized");
     return true;
   } catch (error) {
@@ -41,20 +36,12 @@ function initializePlivoClient() {
   }
 }
 
-/**
- * Connect to MongoDB database
- */
+// Connect to MongoDB
 async function connectMongo() {
   try {
-    if (!MONGO_URI) {
-      throw new Error("MongoDB URI is missing in environment variables");
-    }
+    if (!MONGO_URI) throw new Error("MongoDB URI missing");
 
-    await mongoose.connect(MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-
+    await mongoose.connect(MONGO_URI);
     console.info("✅ MongoDB connected successfully");
     return true;
   } catch (error) {
@@ -63,9 +50,7 @@ async function connectMongo() {
   }
 }
 
-/**
- * Fetch farmers (maybe-ready) data from API
- */
+// Fetch buyers (maybe_ready farmers)
 async function fetchBuyers() {
   try {
     const response = await fetch(FARMERS_API_URL);
@@ -73,20 +58,17 @@ async function fetchBuyers() {
 
     const apiData = await response.json();
     const list = apiData.data?.maybe_ready;
-    if (!Array.isArray(list)) {
-      throw new Error(
-        "Invalid data format: 'maybe_ready' is missing or not an array"
-      );
-    }
+    if (!Array.isArray(list))
+      throw new Error("Invalid API response: no maybe_ready array");
 
     const buyers = list
       .map(({ phoneNumber, cropname }) => ({
         phoneNumber,
-        cropname: cropname?.toLowerCase?.().trim() || "",
+        cropname: cropname?.toLowerCase()?.trim() || "",
       }))
       .filter((b) => b.phoneNumber && b.cropname);
 
-    console.info(`✅ Fetched ${buyers.length} maybe_ready buyers from API`);
+    console.info(`✅ Got ${buyers.length} maybe_ready buyers`);
     return buyers;
   } catch (error) {
     console.error(`❌ Failed to fetch buyers: ${error.message}`);
@@ -94,9 +76,7 @@ async function fetchBuyers() {
   }
 }
 
-/**
- * Get set of recently contacted farmers
- */
+// Get recently contacted farmers
 async function getRecentlyContactedFarmers() {
   try {
     const recentReports = await PlivoReport.find()
@@ -104,56 +84,50 @@ async function getRecentlyContactedFarmers() {
       .limit(MAX_RECENT_REPORTS);
 
     const reportedSet = new Set();
-    recentReports.forEach((report) => {
-      if (report.campaign_report?.length) {
-        report.campaign_report.forEach((entry) => {
-          const key = `+${entry.number}-${entry.cropname
-            ?.toLowerCase?.()
-            .trim()}`;
-          reportedSet.add(key);
-        });
+    for (const report of recentReports) {
+      for (const entry of report.campaign_report || []) {
+        reportedSet.add(
+          `+${entry.number}-${entry.cropname?.toLowerCase()?.trim()}`
+        );
       }
-    });
+    }
 
     console.info(`✅ Found ${reportedSet.size} recently contacted farmers`);
     return reportedSet;
   } catch (error) {
-    console.error(
-      `❌ Failed to get recently contacted farmers: ${error.message}`
-    );
+    console.error(`❌ Error getting recent farmers: ${error.message}`);
     return new Set();
   }
 }
 
-/**
- * Place a call to a farmer
- */
+// Place a call
 async function placeCall(phoneNumber, cropname, reportId) {
-  const callUrl = `${ANSWER_URL}?reportId=${reportId}&cropName=${encodeURIComponent(
-    cropname
-  )}&label=Daily_RTH`;
-
-  const response = await plivoClient.calls.create(
-    SOURCE_NUMBER,
-    phoneNumber,
-    callUrl,
-    { method: "GET" }
-  );
-
-  console.info(
-    `✅ Call placed to ${phoneNumber} for ${cropname} | UUID: ${response.requestUuid}`
-  );
-  return response;
+  try {
+    const callUrl = `${ANSWER_URL}?reportId=${reportId}&cropName=${encodeURIComponent(
+      cropname
+    )}&label=Daily_RTH`;
+    const response = await plivoClient.calls.create(
+      SOURCE_NUMBER,
+      phoneNumber,
+      callUrl,
+      { method: "GET" }
+    );
+    console.info(
+      `📞 Call placed to ${phoneNumber} (${cropname}) | UUID: ${response.requestUuid}`
+    );
+    return response;
+  } catch (error) {
+    console.error(`❌ Failed call to ${phoneNumber}: ${error.message}`);
+    throw error;
+  }
 }
 
-/**
- * Main campaign execution
- */
+// Main campaign runner
 export async function runPlivoCampaign() {
   console.info("🚀 Running Plivo campaign...");
 
   const buyers = await fetchBuyers();
-  if (!buyers.length) return console.warn("No maybe_ready buyers found");
+  if (!buyers.length) return console.warn("No buyers fetched");
 
   const reportedSet = await getRecentlyContactedFarmers();
   const eligible = buyers.filter(
@@ -162,8 +136,8 @@ export async function runPlivoCampaign() {
       !reportedSet.has(`+${phoneNumber}-${cropname}`)
   );
 
-  console.info(`✅ ${eligible.length} farmers eligible`);
-  if (!eligible.length) return console.info("No new farmers to call");
+  console.info(`✅ ${eligible.length} eligible farmers`);
+  if (!eligible.length) return;
 
   const campaign = await PlivoReport.create({
     label: "Daily_RTH",
@@ -172,35 +146,31 @@ export async function runPlivoCampaign() {
     calls_placed: eligible.length,
   });
   const reportId = campaign._id.toString();
-  console.info(`✅ Campaign created: ${reportId}`);
+  console.info(`📝 Campaign created: ${reportId}`);
 
   for (const { phoneNumber, cropname } of eligible) {
-    await new Promise((r) => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 1000)); // throttle
     try {
       await placeCall(phoneNumber, cropname, reportId);
-    } catch (err) {
-      console.error(`❌ Error placing call to ${phoneNumber}: ${err.message}`);
+    } catch {
+      continue;
     }
   }
 
   console.info("✅ Campaign complete");
 }
 
-/**
- * Application entrypoint
- */
+// Entrypoint
 async function main() {
-  console.info("🔄 Initializing service");
-
+  console.info("🔄 Starting service...");
   if (!initializePlivoClient()) process.exit(1);
   if (!(await connectMongo())) process.exit(1);
 
-  // Execute campaign immediately
   await runPlivoCampaign();
-  process.exit(0);
+  process.exit(0); // keep if this is a cron job
 }
 
 main().catch((err) => {
-  console.error(`❌ Fatal error: ${err.message}`);
+  console.error(`❌ Fatal: ${err.message}`);
   process.exit(1);
 });
