@@ -50,6 +50,11 @@ async function startServer() {
       res.send("Welcome to market dashboard");
     });
 
+  app.get("/health", (req, res) => {
+     res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+   });
+
+
     // === TAG FILTERING FOR MULTIPLE TAGS ===
     app.get("/tags", async (req, res) => {
       try {
