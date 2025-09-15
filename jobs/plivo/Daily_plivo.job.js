@@ -11,6 +11,9 @@ const SOURCE_NUMBER = process.env.PLIVO_SOURCE_NUMBER || "+918035737570";
 const ANSWER_URL =
   process.env.ANSWER_URL ||
   "https://markheting-internal-server.onrender.com/plivo/answer";
+const HEALTH_URL =
+  process.env.HEALTH_URL ||
+  "https://markheting-internal-server.onrender.com/health"; // <-- health check endpoint
 const FARMERS_API_URL =
   process.env.FARMERS_API_URL ||
   "https://markhet-internal-ngfs.onrender.com/crop/rth/number";
@@ -48,6 +51,24 @@ async function connectMongo() {
     console.error(`❌ MongoDB connection error: ${error.message}`);
     return false;
   }
+}
+
+// Wait until Render API is warm
+async function waitUntilWarm(url, retries = 12, delay = 10000) {
+  console.info("⏳ Checking if backend is warm...");
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(url, { method: "GET" });
+      if (res.ok) {
+        console.info("🔥 Backend is warm and ready!");
+        return true;
+      }
+    } catch (err) {
+      console.warn(`Waiting for warmup... attempt ${i + 1}/${retries}`);
+    }
+    await new Promise((r) => setTimeout(r, delay));
+  }
+  throw new Error("❌ Backend did not warm up in time");
 }
 
 // Fetch buyers (maybe_ready farmers)
@@ -165,6 +186,9 @@ async function main() {
   console.info("🔄 Starting service...");
   if (!initializePlivoClient()) process.exit(1);
   if (!(await connectMongo())) process.exit(1);
+
+  // ⏳ Ensure backend is warm before placing calls
+  await waitUntilWarm(HEALTH_URL, 12, 10000);
 
   await runPlivoCampaign();
   process.exit(0); // keep if this is a cron job
