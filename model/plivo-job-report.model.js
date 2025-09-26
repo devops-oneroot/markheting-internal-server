@@ -22,6 +22,10 @@ const reportEntrySchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  cropNotAvailable: {
+    type: Boolean,
+    default: false,
+  },
   next_RTH_in_days: {
     type: Number,
     default: null,
