@@ -2,13 +2,41 @@ import { create } from "xmlbuilder2";
 import fs from "fs";
 import PlivoReport from "../model/plivo-job-report.model.js";
 
+const cropAudioMap = {
+  rth_on_audio: encodeURI(
+    "https://raw.githubusercontent.com/shahnoor-oneRoot/plivo-audios/main/audio/Farmer Confirms Ready.wav"
+  ),
+  rth_off_audio: encodeURI(
+    "https://raw.githubusercontent.com/shahnoor-oneRoot/plivo-audios/main/audio/Press 3.wav"
+  ),
+  rth_days_audio: encodeURI(
+    "https://raw.githubusercontent.com/shahnoor-oneRoot/plivo-audios/main/audio/Press 2.wav"
+  ),
+  rth_days_ending_audio: encodeURI(
+    "https://raw.githubusercontent.com/shahnoor-oneRoot/plivo-audios/main/audio/thanks.wav"
+  ),
+  tender_coconut: {
+    greeting: encodeURI(
+      "https://raw.githubusercontent.com/shahnoor-oneRoot/plivo-audios/main/audio/TC-RTH-Hero.wav"
+    ),
+  },
+  maize: {
+    greeting: encodeURI(
+      "https://raw.githubusercontent.com/shahnoor-oneRoot/plivo-audios/main/audio/Maize-RTH-Hero.wav"
+    ),
+  },
+};
+
+function getCropAudios(cropName) {
+  return cropAudioMap[cropName] || cropAudioMap["tender_coconut"];
+}
+
 export const plivoAnswer = async (req, res) => {
   try {
     const { reportId, cropName, label } = req.query;
     const { To } = req.body;
 
     const report = await PlivoReport.findById(reportId);
-
     if (report) {
       if (!report.number_pickups.includes(To)) {
         report.number_pickups.push(To);
@@ -17,46 +45,23 @@ export const plivoAnswer = async (req, res) => {
       }
     }
 
-    if (label == "Daily_RTH") {
-      const responseXml = create({ version: "1.0" })
-        .ele("Response")
-        .ele("GetDigits", {
-          action: `https://markheting-internal-server.onrender.com/plivo/answer-handle?reportId=${reportId}&cropName=${cropName}`,
-          method: "POST",
-          timeout: "10",
-          numDigits: "1",
-        })
-        // Play greeting audio from jsDelivr GitHub CDN
-        .ele("Play")
-        .txt(
-          "https://raw.githubusercontent.com/shahnoor-oneRoot/plivo-audios/main/audio/greeting.wav"
-        )
-        .up()
-        .up() // close GetDigits
-        .ele("Speak")
-        .txt("We did not receive any input. Goodbye!")
-        .up()
-        .end({ prettyPrint: true });
-
-      return res.type("text/xml").send(responseXml);
-    }
+    const cropAudios = getCropAudios(cropName);
 
     const responseXml = create({ version: "1.0" })
       .ele("Response")
       .ele("GetDigits", {
-        action: `https://markheting-internal-server.onrender.com/plivo/answer-handle?reportId=${reportId}&cropName=${cropName}`,
+        action: `${process.env.SELFURL}/plivo/answer-handle?reportId=${reportId}&cropName=${cropName}`,
         method: "POST",
         timeout: "10",
         numDigits: "1",
       })
-      .ele("Speak")
-      .txt(
-        "https://cdn.jsdelivr.net/gh/shahnoor-oneRoot/plivo-audios@main/audio/thanks.wav"
-      )
+      .ele("Play")
+      .txt(cropAudios.greeting) // crop greeting
       .up()
-      .up() // close GetDigits
+      .up()
       .ele("Speak")
       .txt("We did not receive any input. Goodbye!")
+      .up()
       .end({ prettyPrint: true });
 
     res.type("text/xml").send(responseXml);
@@ -66,7 +71,7 @@ export const plivoAnswer = async (req, res) => {
   }
 };
 
-// Handle initial digit: 1 = usual, 2 = ask days
+// Handle digits: 1 = ready today, 2 = ask days, 3 = not ready/off
 export const plivoAnswerHandle = async (req, res) => {
   try {
     const { reportId, cropName } = req.query;
@@ -87,16 +92,12 @@ export const plivoAnswerHandle = async (req, res) => {
           ready: true,
         });
         await campaign.save();
-        console.log(`Recorded usual update for ${To}`);
       }
 
-      // Respond and hang up
       const xml = create({ version: "1.0" })
         .ele("Response")
         .ele("Play")
-        .txt(
-          "https://raw.githubusercontent.com/shahnoor-oneRoot/plivo-audios/main/audio/thanks.wav"
-        )
+        .txt(cropAudioMap.rth_on_audio) // Press 1 audio
         .up()
         .end({ prettyPrint: true });
 
@@ -104,19 +105,16 @@ export const plivoAnswerHandle = async (req, res) => {
     }
 
     if (Digits === "2") {
-      // Ask for days input (up to 2 digits)
       const xml = create({ version: "1.0" })
         .ele("Response")
         .ele("GetDigits", {
-          action: `https://markheting-internal-server.onrender.com/plivo/days-handle?reportId=${reportId}&cropName=${cropName}`,
+          action: `${process.env.SELFURL}/plivo/days-handle?reportId=${reportId}&cropName=${cropName}`,
           method: "POST",
           timeout: "10",
           numDigits: "2",
         })
         .ele("Play")
-        .txt(
-          "https://raw.githubusercontent.com/shahnoor-oneRoot/plivo-audios/main/audio/option2.wav"
-        )
+        .txt(cropAudioMap.rth_days_audio) // Press 2 audio
         .up()
         .up()
         .ele("Speak")
@@ -126,7 +124,30 @@ export const plivoAnswerHandle = async (req, res) => {
       return res.type("text/xml").send(xml);
     }
 
-    // Invalid input
+    if (Digits == "3") {
+      const campaign = await PlivoReport.findById(reportId);
+      if (campaign) {
+        campaign.campaign_report.push({
+          cropname: cropName,
+          number: To,
+          given_on: new Date(),
+          ready: false,
+          cropNotAvailable: true,
+        });
+        await campaign.save();
+        console.log(`Recorded RTH OFF for ${To}`);
+      }
+
+      const xml = create({ version: "1.0" })
+        .ele("Response")
+        .ele("Play")
+        .txt(cropAudioMap.rth_off_audio) // Press 3 audio
+        .up()
+        .end({ prettyPrint: true });
+
+      return res.type("text/xml").send(xml);
+    }
+
     const invalidXml = create({ version: "1.0" })
       .ele("Response")
       .ele("Speak")
@@ -152,7 +173,7 @@ export const plivoDaysHandle = async (req, res) => {
     }
 
     const days = parseInt(Digits, 10);
-    // Directly push days entry
+
     await PlivoReport.findByIdAndUpdate(reportId, {
       $push: {
         campaign_report: {
@@ -169,9 +190,7 @@ export const plivoDaysHandle = async (req, res) => {
     const xml = create({ version: "1.0" })
       .ele("Response")
       .ele("Play")
-      .txt(
-        `https://raw.githubusercontent.com/shahnoor-oneRoot/plivo-audios/main/audio/thanks.wav`
-      )
+      .txt(cropAudioMap.rth_days_ending_audio) // Thanks
       .up()
       .end({ prettyPrint: true });
 
@@ -182,7 +201,6 @@ export const plivoDaysHandle = async (req, res) => {
   }
 };
 
-// Handles hangup events and logs them
 export const plivoHangup = async (req, res) => {
   console.log("Plivo hang");
   const { CallUUID, From, To, EndTime, HangupCause } = req.body;
